@@ -1,0 +1,48 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include "../include/device_timer.h"
+
+void DeviceTimer::createTimer(){;
+    resetTimer();
+}
+
+void DeviceTimer::resetTimer(){
+    elapsedTime = 0;
+}
+
+void DeviceTimer::startTimer(){
+    gettimeofday(&t_start, 0);
+}
+
+void DeviceTimer::stopTimer(){
+    gettimeofday(&t_stop, 0);
+    elapsedTime = (1000000.0*(t_stop.tv_sec-t_start.tv_sec) + t_stop.tv_usec-t_start.tv_usec)/1000.0;
+}
+
+
+
+// // #include "../include/device_timer.h"
+
+// // void DeviceTimer::createTimer(){
+// //     cudaEventCreate(&start);
+// //     cudaEventCreate(&stop);
+// // }
+
+// // void DeviceTimer::getTime(float elapsedTime){
+// //     cudaEventSynchronize(stop);
+// //     cudaEventElapsedTime(&elapsedTime, start, stop);
+// // }
+
+// // void DeviceTimer::getTime(){
+// //     cudaEventSynchronize(stop);
+// //     cudaEventElapsedTime(&elapsedTime, start, stop);
+// // }
+
+// // void DeviceTimer::startTimer(){
+// //     cudaEventRecord(start,0);
+// // }
+
+// // void DeviceTimer::stopTimer(){
+// //     cudaEventRecord(stop,0);
+// //     // printf(""stop);
+// // }
