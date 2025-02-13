@@ -89,27 +89,40 @@ void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
 
 void copyMemoryToHost(float *host, float *device, int numBodies)
 {
-    cudaMemcpy(host, device, numBodies*2*sizeof(float), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(host, device, numBodies*2*sizeof(float), cudaMemcpyDeviceToHost);
 };
 
 
 void copyMemoryToDevice(float *host, float *device, int numBodies)
 {
-    cudaMemcpy(host, device, numBodies*2*sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(host, device, numBodies*2*sizeof(float), cudaMemcpyHostToDevice);
 };
 
 
-void allocateMemory(float *data[2], int numBodies)
+void matchMemory(float *dataDevice[2], float *dataHost[2])
 {
-    unsigned int memorySize = sizeof(float) * 2 * numBodies;
+   cudaHostGetDevicePointer((void **)&dataDevice[0], (void *)dataHost[0], 0);
+   cudaHostGetDevicePointer((void **)&dataDevice[1], (void *)dataHost[1], 0);
+};
+
+
+void allocateMemory(float *data[2], unsigned int memorySize)
+{
+    cudaHostAlloc((void **)&data[0], memorySize,
+                                  cudaHostAllocMapped | cudaHostAllocPortable);
+    cudaHostAlloc((void **)&data[1], memorySize,
+                                  cudaHostAllocMapped | cudaHostAllocPortable);
+/*
     cudaMalloc((void**)&data[0], memorySize);
     cudaMalloc((void**)&data[1], memorySize);
+*/
 }
 
 
 void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
                         PhysicalParams params, int step, int nBodies, int blockSize)
 
-void copyMemoryToDevice(float *host, float *device, int numBodies);
-void copyMemoryToHost(float *host, float *device, int numBodies);
+//void copyMemoryToDevice(float *host, float *device, int numBodies);
+//void copyMemoryToHost(float *host, float *device, int numBodies);
 void allocateMemory(float *data[2], int numBodies);
+void matchMemory(float *dataDevice[2], float *dataHost[2])

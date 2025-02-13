@@ -30,7 +30,7 @@ double CPUmethods::csc(double x)
   return 1/sin(x);
 }
 
-void CPUmethods::randomizeSystem(float *samplesBuffer, int numBodies)
+void CPUmethods::randomizeSystem(float *inputBuffer, int numBodies)
 {
     int buffIdx = 0, i = 0;
     while (i < numBodies)

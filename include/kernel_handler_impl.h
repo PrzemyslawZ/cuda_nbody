@@ -10,10 +10,11 @@
 
 void runNbody(float *newPosition, float *oldPosition,
                         float dt, PhysicalParams params, int nBodies, int blockSize);
-void copyMemoryToDevice(float *host, float *device, int numBodies);
-void copyMemoryToHost(float *host, float *device, int numBodies);
-void allocateMemory(float *velocity[2], int numBodies);
-void deleteMemory(float *velocity[2]);
+//void copyMemoryToDevice(float *host, float *device, int numBodies);
+//void allocateMemory(float *data[2], int numBodies);
+void allocateMemory(float *data[2], int numBodies);
+void matchMemory(float *dataDevice[2], float *dataHost[2])
+void deleteMemory(float *data[2]);
 
 KernelHandler::KernelHandler(
     PhysicalParams params, 
@@ -57,20 +58,28 @@ void KernelHandler::_initialize()
 
     nBodies = systemParams.numBodies;
     unsigned int memorySize = sizeof(float) * 2 * nBodies;
-    mem_hostBuffer = new float[memorySize];
 
-    memset(mem_hostBuffer, 0, memorySize);
-    cudaMalloc((void**)&mem_deviceBuffer[0], memorySize);
-    cudaMalloc((void**)&mem_deviceBuffer[1], memorySize);
-    
+    mem_hostBuffer[0] = new float[memorySize];
+    mem_hostBuffer[1] = new float[memorySize];
+
+    memset(mem_hostBuffer[0], 0, memorySize);
+    memset(mem_hostBuffer[1], 0, memorySize);
+
+    allocateMemory(mem_deviceBuffer, memorySize);
+    matchMemory(mem_deviceBuffer, mem_hostBuffer);
+
     isInitialized = true;
 }
+    // cudaMalloc((void**)&mem_deviceBuffer[0], memorySize);
+    // cudaMalloc((void**)&mem_deviceBuffer[1], memorySize);
 
 void KernelHandler::_summarize() 
 {
     assert(isInitialized);
-    if(mem_hostBuffer)
-        delete [] mem_hostBuffer;
+    if(mem_hostBuffer[0])
+        delete [] mem_hostBuffer[0];
+    if(mem_hostBuffer[1])
+        delete [] mem_hostBuffer[1];
     if(mem_deviceBuffer[0])
         cudaFree(mem_deviceBuffer[0]);
     if(mem_deviceBuffer[1])
@@ -85,13 +94,14 @@ void KernelHandler::setPhysicalParams(PhysicalParams params)
 float *KernelHandler::readMemory()
 {
     assert(isInitialized);
-    float *hostData = mem_hostBuffer;
-    copyMemoryToHost(hostData, mem_deviceBuffer[memRead], nBodies);
+    float *hostData = mem_hostBuffer[memRead];
+    //copyMemoryToHost(hostData, mem_deviceBuffer[memRead], nBodies);
     return hostData;
 }
 
 void KernelHandler::writeMemory(float *data)
 {
     assert(isInitialized);
-    copyMemoryToDevice(mem_deviceBuffer[memWrite], data, nBodies);
+    memcpy(mem_hostBuffer[memWrite], data, m_numBodies * 4 * sizeof(T));    
+//copyMemoryToDevice(mem_deviceBuffer[memWrite], data, nBodies);
 }

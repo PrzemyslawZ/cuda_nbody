@@ -15,7 +15,7 @@ class KernelHandler : public NBodySimulation{
         KernelHandler(PhysicalParams, unsigned int, unsigned int);
         virtual ~KernelHandler();
 
-        float* mem_hostBuffer;
+        float* mem_hostBuffer[2];
 
         virtual void run(int);
         virtual void setPhysicalParams(PhysicalParams);

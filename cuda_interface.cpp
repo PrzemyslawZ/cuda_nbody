@@ -18,13 +18,22 @@ PhysicalParams PARAMS;
 GPUDev GPU_PARAMS;
 
 
-void runGPUSimulation()
+void runGPUSimulation(float *resultsBuffer)
 {
+    int ptrShift = 2 * PARAMS.numBodies;
+    int iSave = 0;
+
     timer->resetTimer();
     timer->startTimer();
     for (int tStep = 0; tStep < PARAMS.steps; tStep++)
     {
         kernel->run(tStep);
+        if(tStep%PARAMS.saveStep==0)
+        {
+            memcpy(resultsBuffer + ptrShift*(iSave++), 
+                   kernel->readMemory(), 
+                   ptrShift * sizeof(float));
+        }
     }    
     cudaDeviceSynchronize();
     timer->stopTimer();
@@ -32,25 +41,40 @@ void runGPUSimulation()
 }
 
 
-void runCPUSimulation()
+void runCPUSimulation(float *resultsBuffer)
 {
+    int ptrShift = 2 * PARAMS.numBodies;
+    int iSave = 0;
+
     timer->resetTimer();
     timer->startTimer();
     for (int tStep = 0; tStep < PARAMS.steps; tStep++)
     {
         host->run(tStep);
+        if(tStep%PARAMS.saveStep==0)
+        {
+            memcpy(resultsBuffer + ptrShift*(iSave++), 
+                   host->readMemory(), 
+                   ptrShift * sizeof(float));
+        }
     }
     timer->stopTimer();
     TIME_CPU = timer->elapsedTime;
 }
 
 
-void initializeSimulator()
+void initializeSimulator(float *inputBuffer)
 {
     if(PLATFORM == "GPU" || "BOTH")
+    {
         kernel = new KernelHandler(PARAMS, numBlocks, blockSize);
-    if(PLATFORM == "CPU")
+        kernel->writeMemory(inputBuffer)
+    }
+    if(PLATFORM == "CPU" || "BOTH")
+    {
         host = new NbodySimulationCPU(PARAMS)
+        host->writeMemory(inputBuffer)
+    }
 }
 
 
@@ -61,12 +85,12 @@ void loadParams(const std::map<std::string, float> params,
     PARAMS.numBodies = (int)params["num_bodies"]
     PARAMS.dt = params["dt"];
     PARAMS.steps = (int)params["tsteps"];
-    //PARAMS.savesteps = 100;
+    PARAMS.saveStep = (int)params["save_step"];
     PARAMS.Nx_spins = (int)params["nx_spins"];
     PARAMS.Ny_spins = (int)params["ny_spins"];
     PARAMS.Nz_spins = (int)params["ny_spins"];
     PARAMS.Gamma1 = params["gamma1"];
-    PARAMS.Gamma2 = params["gamma1"];
+    PARAMS.Gamma2 = params["gamma2"];
     PARAMS.Nth1 = (int)params["nth1"];
     PARAMS.Nth2 = (int)params["nth2"];
     PARAMS.Gamma = params["gamma"];
@@ -87,11 +111,12 @@ void loadParams(const std::map<std::string, float> params,
 }
 
 
-void initialize(const std::map<std::string, float> params, 
+void initialize(float *inputBuffer,
+                const std::map<std::string, float> params, 
                 const std::map<std::string, int> gpuParams)
 {
     loadParams(params, gpuParams)
-    initializeSimulator();
+    initializeSimulator(inputBuffer);
 }
 
 
@@ -109,7 +134,7 @@ void closeSimulation()
         delete GPU_PARAMS;
 }
 
-
+/*
 void summarize(float *resultsBuffer, int buffDim)
 {
     if(kernel)
@@ -119,19 +144,19 @@ void summarize(float *resultsBuffer, int buffDim)
     closeSimulation();
 }
 
+*/
 
-void simulate(float *resultsBuffer, int buffDim,  
+
+void simulate(float *inputBuffer, int ibuffDim, 
+              float *resultsBuffer, int rbuffDim,  
               const std::map<std::string, float> params, 
               const std::map<std::string, int> gpuParams)
 {
-    initialize(params, gpuParams);
+    initialize(inputBuffer, params, gpuParams);
     if(kernel)
-        runGPUSimulation();
+        runGPUSimulation(resultsBuffer);
     if(host)
         runCPUSimulation();
         
     summarize(buffDim);
-};
-
-// TODO: Implement reading results from gpu
-// TODO: Implement arrays numpy for getting reslts 
+}; 
