@@ -4,28 +4,30 @@
 // #include "kernel.cuh"
 
 void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
-                        PhysicalParams input, int step, int nBodies, int blockSize)
-void copyMemoryToDevice(float *host, float *device, int numBodies);
-void copyMemoryToHost(float *host, float *device, int numBodies);
+    PhysicalParams *params, int step, int nBodies, int blockSize);
+
+//void copyMemoryToDevice(float *host, float *device, int numBodies);
+//void copyMemoryToHost(float *host, float *device, int numBodies);
 void allocateMemory(float *data[2], int numBodies);
+void matchMemory(float *dataDevice[2], float *dataHost[2]);
 
 class KernelHandler : public NBodySimulation{
 
     public:
-        KernelHandler(PhysicalParams, unsigned int, unsigned int);
+        KernelHandler(PhysicalParams *, unsigned int, unsigned int);
         virtual ~KernelHandler();
 
         float* mem_hostBuffer[2];
 
         virtual void run(int);
-        virtual void setPhysicalParams(PhysicalParams);
         virtual float* readMemory();
         virtual void writeMemory(float*);
+        virtual void setPhysicalParams(PhysicalParams *);
 
     protected:
         KernelHandler() {};
         float* mem_deviceBuffer[2];
-        PhysicalParams systemParams;
+        PhysicalParams *systemParams;
 
         unsigned int memRead;
         unsigned int memWrite;

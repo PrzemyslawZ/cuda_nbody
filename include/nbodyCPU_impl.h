@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <omp.h>
 
-double CPUmethods::randn()
+/*double CPUmethods::randn()
 {
     
     double u1 = rand() / (double)RAND_MAX; // Uniform random number between 0 and 1
@@ -19,17 +19,7 @@ double CPUmethods::randn()
 
     return z0;
 }
-
-double CPUmethods::cot(double x)
-{
-  return 1/tan(x);
-}
-
-double CPUmethods::csc(double x)
-{
-  return 1/sin(x);
-}
-
+    
 void CPUmethods::randomizeSystem(float *inputBuffer, int numBodies)
 {
     int buffIdx = 0, i = 0;
@@ -47,8 +37,19 @@ void CPUmethods::randomizeSystem(float *inputBuffer, int numBodies)
         i++;
     }
 }
+*/
 
-NbodySimulationCPU::NbodySimulationCPU(PhysicalParams params) : NBodySimulation(params.numBodies)
+double CPUmethods::cot(double x)
+{
+  return 1/tan(x);
+}
+
+double CPUmethods::csc(double x)
+{
+  return 1/sin(x);
+}
+
+NbodySimulationCPU::NbodySimulationCPU(PhysicalParams *params) : NBodySimulation(params)
 {
     memRead = 0;
     memWrite = 1;
@@ -69,7 +70,7 @@ void NbodySimulationCPU::run(int step)
     std::swap(memRead, memWrite);
 }
 
-void NbodySimulationCPU::setPhysicalParams(PhysicalParams params)
+void NbodySimulationCPU::setPhysicalParams(PhysicalParams *params)
 {
     systemParams = params;
 }
@@ -87,7 +88,7 @@ void NbodySimulationCPU::writeMemory(float *data)
 
 void NbodySimulationCPU::_initialize()
 {
-    nBodies = systemParams
+    nBodies = systemParams->numBodies;
     mem_Buffer = new float[2*nBodies];
     memset(mem_Buffer, 0, 2*nBodies*sizeof(float));
 }
@@ -117,23 +118,22 @@ void NbodySimulationCPU::simulate()
         buffer[1] = mem_Buffer[idx+1];
         
 
-        float3CPU beta = computeInteraction(systemparas, oldBufferQuantity, i);
-        PhysicalParams params = systemParams;
+        float3CPU beta = computeInteraction(oldBufferQuantity);
 
-        buffer[0] += (- 2 * params.Jx * sin(oldBufferQuantity[idx+1]) * sqr3 * beta.x\
-         + 2 * params.Jy * cos(oldBufferQuantity[idx+1]) * sqr3 * beta.y ) * params.dt +\
-         2 * params.Gamma * (cot(oldBufferQuantity[idx+0]) - csc(oldBufferQuantity[idx+0])/sqr3) * params.dt;
+        buffer[0] += (- 2 * systemParams->Jx * sin(oldBufferQuantity[idx+1]) * sqr3 * beta.x\
+         + 2 * systemParams->Jy * cos(oldBufferQuantity[idx+1]) * sqr3 * beta.y ) * systemParams->dt +\
+         2 * systemParams->Gamma * (cpuMet.cot(oldBufferQuantity[idx+0]) - cpuMet.csc(oldBufferQuantity[idx+0])/sqr3) * systemParams->dt;
 
-        buffer[1] += (- 2 * params.Jx * cot(oldBufferQuantity[idx+0]) * cos(oldBufferQuantity[idx+1]) * sqr3 * beta.x \
-        - 2 * params.Jy * cot(oldBufferQuantity[idx+0]) * sin(oldBufferQuantity[idx+1]) * sqr3 * beta.y +\
-         2 * params.Jz * sqr3 * beta.z) * params.dt;//  +  sqrt(2) * 
+        buffer[1] += (- 2 * systemParams->Jx * cpuMet.cot(oldBufferQuantity[idx+0]) * cos(oldBufferQuantity[idx+1]) * sqr3 * beta.x \
+        - 2 * systemParams->Jy * cpuMet.cot(oldBufferQuantity[idx+0]) * sin(oldBufferQuantity[idx+1]) * sqr3 * beta.y +\
+         2 * systemParams->Jz * sqr3 * beta.z) * systemParams->dt;//  +  sqrt(2) * 
 
         mem_Buffer[idx+0] = buffer[0];
         mem_Buffer[idx+1] = buffer[1];
     }
 }
 
-float3CPU NbodySimulationCPU::computeInteraction(PhysicalParams params, float* oldBuffQuantity, int idx)
+float3CPU NbodySimulationCPU::computeInteraction(float* oldBuffQuantity)
 //#ifdef OPENMP
 //#pragma omp parallel for
 //#endif
@@ -143,7 +143,7 @@ float3CPU NbodySimulationCPU::computeInteraction(PhysicalParams params, float* o
         
     // We unroll this loop 4X for a small performance boost.
     int idx = 0;
-    while (idy < nBodies) 
+    while (idx < nBodies) 
     {
         interaction.x += sin(oldBuffQuantity[2*idx+0]) * cos(oldBuffQuantity[2*idx+1]);
         interaction.y += sin(oldBuffQuantity[2*idx+0]) * sin(oldBuffQuantity[2*idx+1]);

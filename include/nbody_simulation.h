@@ -3,6 +3,8 @@
 // #pragma once 
 
 #define MAX_FILENAME_LENGTH 128
+#define BLOCK_SIZE_DEF 256;
+#define NUM_BLOCKS_DEF 4
 
 struct PhysicalParams
 {
@@ -10,7 +12,7 @@ struct PhysicalParams
     int systemType;
     double dt;
     long steps;
-    int savesteps;
+    int saveStep;
     int Nx_spins;
     int Ny_spins;
     int Nz_spins;
@@ -33,16 +35,22 @@ struct PhysicalParams
     int ThreadId;
 };
 
+struct GPUDev{
+
+    int blockSize = BLOCK_SIZE_DEF;
+    int numBlocks = NUM_BLOCKS_DEF;
+};
+
 class NBodySimulation{
 
     public:
-        NBodySimulation(int numBodies) {nBodies = numBodies; isInitialized=false;};
+        NBodySimulation(PhysicalParams *params) {nBodies = params->numBodies; isInitialized=false;};
         virtual ~NBodySimulation() {};
 
         virtual void run(int) = 0;
         virtual float* readMemory() = 0;
         virtual void writeMemory(float*) = 0;
-         //        virtual void setPhysicalParams(float, float) = 0;
+        virtual void setPhysicalParams(PhysicalParams *) = 0;
 
     protected:
         NBodySimulation() {};

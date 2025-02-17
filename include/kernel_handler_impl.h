@@ -8,18 +8,19 @@
 #include <cuda_runtime.h>
 // #include "cuda_runtime_api.h"
 
-void runNbody(float *newPosition, float *oldPosition,
-                        float dt, PhysicalParams params, int nBodies, int blockSize);
+void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
+    PhysicalParams *params, int step, int nBodies, int blockSize);
+
 //void copyMemoryToDevice(float *host, float *device, int numBodies);
-//void allocateMemory(float *data[2], int numBodies);
-void allocateMemory(float *data[2], int numBodies);
-void matchMemory(float *dataDevice[2], float *dataHost[2])
-void deleteMemory(float *data[2]);
+//void copyMemoryToHost(float *host, float *device, int numBodies);
+void allocateMemory(float *data[2], unsigned int memorySize);
+void matchMemory(float *dataDevice[2], float *dataHost[2]);
+
 
 KernelHandler::KernelHandler(
-    PhysicalParams params, 
+    PhysicalParams *params, 
     unsigned int numBlocks, 
-    unsigned int blockSize): NBodySimulation(params.numBodies)
+    unsigned int blockSize): NBodySimulation(params)
 {
     memRead = 0;
     memWrite = 1;
@@ -47,7 +48,7 @@ void KernelHandler::run(int step)
     runNbody(
         mem_deviceBuffer[memRead], 
         mem_deviceBuffer[memWrite],
-        step, systemParams, nBodies, d_blockSize);
+        systemParams, step, nBodies, d_blockSize);
 
     std::swap(memRead, memWrite);    
 }
@@ -56,7 +57,7 @@ void KernelHandler::_initialize()
 {
     assert(!isInitialized);
 
-    nBodies = systemParams.numBodies;
+    nBodies = systemParams->numBodies;
     unsigned int memorySize = sizeof(float) * 2 * nBodies;
 
     mem_hostBuffer[0] = new float[memorySize];
@@ -86,7 +87,7 @@ void KernelHandler::_summarize()
         cudaFree(mem_deviceBuffer[1]);
 };
 
-void KernelHandler::setPhysicalParams(PhysicalParams params)
+void KernelHandler::setPhysicalParams(PhysicalParams *params)
 {
     systemParams = params;
 }
@@ -102,6 +103,6 @@ float *KernelHandler::readMemory()
 void KernelHandler::writeMemory(float *data)
 {
     assert(isInitialized);
-    memcpy(mem_hostBuffer[memWrite], data, m_numBodies * 4 * sizeof(T));    
+    memcpy(mem_hostBuffer[memWrite], data, nBodies * 4 * sizeof(float));    
 //copyMemoryToDevice(mem_deviceBuffer[memWrite], data, nBodies);
 }

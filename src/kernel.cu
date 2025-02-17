@@ -12,6 +12,13 @@ namespace cg = cooperative_groups;
 
 __constant__ float E2 = 1.0f;
 
+void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
+    PhysicalParams *params, int step, int nBodies, int blockSize);
+//void copyMemoryToDevice(float *host, float *device, int numBodies);
+//void copyMemoryToHost(float *host, float *device, int numBodies);
+void allocateMemory(float *data[2], unsigned int memorySize);
+void matchMemory(float *dataDevice[2], float *dataHost[2]);
+
 __device__ float cotf(float x)
 {   float t = tanf(x);
     return (t == 0.0f) ? CUDART_NAN_F : 1.0f / t;
@@ -45,12 +52,12 @@ __device__ float3 computeInteraction(float2* buffer, int idx, int numTiles, cg::
 }
 
  __global__ void simulate(float2 *newBuffQuantity, float2 *oldBuffQuantity,
-                        PhysicalParams params, int step, int numTiles, long long seed)
+                        PhysicalParams *params, int numTiles, long long seed)
 {
     cg::thread_block cta = cg::this_thread_block();
 
     int idx = __mul24(blockIdx.x, blockDim.x) + threadIdx.x;
-    float2 buffer = oldBuffQuantity[idx];
+    float2 bufferQuant = oldBuffQuantity[idx];
     
     float3 interaction = computeInteraction(oldBuffQuantity, idx, numTiles, cta);
     float sqr3 = sqrtf(3);
@@ -60,21 +67,21 @@ __device__ float3 computeInteraction(float2* buffer, int idx, int numTiles, cg::
     curand_init(seed, idx, 0, &state);
 
 
-    interaction.x += (- 2 * params.Jx * sinf(oldBuffQuantity[idx].y) * sqr3 * interaction.x + 2\
-    * params.Jy * cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.y ) * params.dt +  \
-    2 * params.Gamma * (cotf(oldBuffQuantity[idx].x) - cscf(oldBuffQuantity[idx].x)/sqr3) \
-    * params.dt;
+    bufferQuant.x += (- 2 * params->Jx * sinf(oldBuffQuantity[idx].y) * sqr3 * interaction.x + 2\
+    * params->Jy * cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.y ) * params->dt +  \
+    2 * params->Gamma * (cotf(oldBuffQuantity[idx].x) - cscf(oldBuffQuantity[idx].x)/sqr3) \
+    * params->dt;
 
-    interaction.y += (- 2 * params.Jx * cotf(oldBuffQuantity[idx].x) * \
+    bufferQuant.y += (- 2 * params->Jx * cotf(oldBuffQuantity[idx].x) * \
     cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.x - \
-    2 * params.Jy * cotf(oldBuffQuantity[idx].x) * sinf(oldBuffQuantity[idx].y) \
-    * sqr3 * interaction.y + 2 * params.Jz * sqr3 * interaction.z) * params.dt; 
+    2 * params->Jy * cotf(oldBuffQuantity[idx].x) * sinf(oldBuffQuantity[idx].y) \
+    * sqr3 * interaction.y + 2 * params->Jz * sqr3 * interaction.z) * params->dt; 
 
-    newBuffQuantity[idx] = interaction;
+    newBuffQuantity[idx] = bufferQuant;
 }
 
 void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
-                        PhysicalParams params, int step, int nBodies, int blockSize)
+                        PhysicalParams *params, int step, int nBodies, int blockSize)
 {
     int numBlocks = (nBodies + blockSize - 1) / blockSize;
     int sharedMemSize = blockSize * 2 * sizeof(float);
@@ -83,7 +90,7 @@ void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
 
     simulate<<<numBlocks, blockSize, sharedMemSize>>>(
         (float2 *)newBuffQuantity, (float2 *)oldBuffQuantity,
-        params, step, numTiles, seed);    
+        params, numTiles, seed);    
 };
 
 
@@ -117,12 +124,3 @@ void allocateMemory(float *data[2], unsigned int memorySize)
     cudaMalloc((void**)&data[1], memorySize);
 */
 }
-
-
-void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
-                        PhysicalParams params, int step, int nBodies, int blockSize)
-
-//void copyMemoryToDevice(float *host, float *device, int numBodies);
-//void copyMemoryToHost(float *host, float *device, int numBodies);
-void allocateMemory(float *data[2], int numBodies);
-void matchMemory(float *dataDevice[2], float *dataHost[2])

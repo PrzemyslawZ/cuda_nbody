@@ -18,30 +18,32 @@ class CPUmethods{
     public:
         CPUmethods() {};
         virtual ~CPUmethods() {};
-        int A = 0;
+        //int A = 0;
 
     private:
-        double rand();
+        //double rand();
         double cot(double);
         double csc(double);
-        void randomizeSystem(float*,int);
+        //void randomizeSystem(float*,int);
 };
 
 class NbodySimulationCPU : public NBodySimulation{
 
     public:
-        NbodySimulationCPU(PhysicalParams);
+        NbodySimulationCPU(PhysicalParams *);
         virtual ~NbodySimulationCPU();
 
         virtual void run(int);
-        virtual void setPhysicalParams(PhysicalParams);
+        virtual void setPhysicalParams(PhysicalParams *);
         virtual float* readMemory();
         virtual void writeMemory(float*);
 
     protected:
         NbodySimulationCPU() {};
+        CPUmethods cpuMet;
+        
         float* mem_Buffer;
-        PhysicalParams systemParams;
+        PhysicalParams *systemParams;
         
         unsigned int memRead;
         unsigned int memWrite;
@@ -50,7 +52,7 @@ class NbodySimulationCPU : public NBodySimulation{
         virtual void _summarize();
 
         void simulate();
-        float3CPU computeInteraction(float*, PhysicalParams, int);
+        float3CPU computeInteraction(float*);
         float interact(int id1, int id2);
 
 //        float m_damping;
