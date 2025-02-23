@@ -21,20 +21,19 @@ class CPUmethods{
         //int A = 0;
 
     private:
-        //double rand();
-        double cot(double);
-        double csc(double);
+        float randn();
+        float cot(float);
+        float csc(float);
         //void randomizeSystem(float*,int);
 };
 
 class NbodySimulationCPU : public NBodySimulation{
 
     public:
-        NbodySimulationCPU(PhysicalParams *);
+        NbodySimulationCPU(PhysicalParams);
         virtual ~NbodySimulationCPU();
 
         virtual void run(int);
-        virtual void setPhysicalParams(PhysicalParams *);
         virtual float* readMemory();
         virtual void writeMemory(float*);
 
@@ -43,7 +42,7 @@ class NbodySimulationCPU : public NBodySimulation{
         CPUmethods cpuMet;
         
         float* mem_Buffer;
-        PhysicalParams *systemParams;
+        PhysicalParams systemParams;
         
         unsigned int memRead;
         unsigned int memWrite;

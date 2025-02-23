@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <omp.h>
 
+
 /*double CPUmethods::randn()
 {
     
@@ -39,22 +40,37 @@ void CPUmethods::randomizeSystem(float *inputBuffer, int numBodies)
 }
 */
 
-double CPUmethods::cot(double x)
+float CPUmethods::cot(float x)
 {
   return 1/tan(x);
 }
 
-double CPUmethods::csc(double x)
+float CPUmethods::csc(float x)
 {
   return 1/sin(x);
 }
 
-NbodySimulationCPU::NbodySimulationCPU(PhysicalParams *params) : NBodySimulation(params)
+float CPUmethods::randn()
+{
+    
+    float u1 = rand() / (float)RAND_MAX; // Uniform random number between 0 and 1
+    float u2 = rand() / (float)RAND_MAX; // Uniform random number between 0 and 1
+    while(u1==0){
+      u1 = rand() / (double)RAND_MAX; // Uniform random number between 0 and 1 and avoid 0
+    }
+    // Box-Muller transform
+    float z0 = sqrt(-2 * log(u1)) * cos(2 * M_PI * u2); // Normally distributed random number
+    // double z1 = sqrt(-2 * log(u1)) * sin(2 * M_PI * u2); // Second normally distributed random number (optional)
+
+    return z0;
+}
+
+NbodySimulationCPU::NbodySimulationCPU(PhysicalParams params) : NBodySimulation(params)
 {
     memRead = 0;
     memWrite = 1;
-
-    setPhysicalParams(params);
+    systemParams = params;
+    
     _initialize();
 }
 
@@ -70,11 +86,6 @@ void NbodySimulationCPU::run(int step)
     std::swap(memRead, memWrite);
 }
 
-void NbodySimulationCPU::setPhysicalParams(PhysicalParams *params)
-{
-    systemParams = params;
-}
-
 float *NbodySimulationCPU::readMemory()
 {
     return mem_Buffer;
@@ -82,13 +93,13 @@ float *NbodySimulationCPU::readMemory()
 
 void NbodySimulationCPU::writeMemory(float *data)
 {
-    float *inData = 0;
-    memcpy(inData, data, 2*nBodies*sizeof(float));
+    // float *inData = 0;
+    memcpy(mem_Buffer, data, 2*nBodies*sizeof(float));
 }
 
 void NbodySimulationCPU::_initialize()
 {
-    nBodies = systemParams->numBodies;
+    nBodies = systemParams.numBodies;
     mem_Buffer = new float[2*nBodies];
     memset(mem_Buffer, 0, 2*nBodies*sizeof(float));
 }
@@ -118,15 +129,17 @@ void NbodySimulationCPU::simulate()
         buffer[1] = mem_Buffer[idx+1];
         
 
-        float3CPU beta = computeInteraction(oldBufferQuantity);
+        float3CPU interaction = computeInteraction(oldBufferQuantity);
 
-        buffer[0] += (- 2 * systemParams->Jx * sin(oldBufferQuantity[idx+1]) * sqr3 * beta.x\
-         + 2 * systemParams->Jy * cos(oldBufferQuantity[idx+1]) * sqr3 * beta.y ) * systemParams->dt +\
-         2 * systemParams->Gamma * (cpuMet.cot(oldBufferQuantity[idx+0]) - cpuMet.csc(oldBufferQuantity[idx+0])/sqr3) * systemParams->dt;
+        buffer[0] += (- 2 * systemParams.Jx * sin(oldBufferQuantity[idx+1]) * sqr3 * interaction.x\
+         + 2 * systemParams.Jy * cos(oldBufferQuantity[idx+1]) * sqr3 * interaction.y ) * systemParams.dt +\
+         2 * systemParams.Gamma * (cpuMet.cot(oldBufferQuantity[idx+0]) - cpuMet.csc(oldBufferQuantity[idx+0])/sqr3) * systemParams.dt;
 
-        buffer[1] += (- 2 * systemParams->Jx * cpuMet.cot(oldBufferQuantity[idx+0]) * cos(oldBufferQuantity[idx+1]) * sqr3 * beta.x \
-        - 2 * systemParams->Jy * cpuMet.cot(oldBufferQuantity[idx+0]) * sin(oldBufferQuantity[idx+1]) * sqr3 * beta.y +\
-         2 * systemParams->Jz * sqr3 * beta.z) * systemParams->dt;//  +  sqrt(2) * 
+        buffer[1] += (- 2 * systemParams.Jx * cpuMet.cot(oldBufferQuantity[idx+0]) * cos(oldBufferQuantity[idx+1]) * sqr3 * interaction.x \
+        - 2 * systemParams.Jy * cpuMet.cot(oldBufferQuantity[idx+0]) * sin(oldBufferQuantity[idx+1]) * sqr3 * interaction.y +\
+         2 * systemParams.Jz * sqr3 * interaction.z) * systemParams.dt +  sqrt(2) \
+         * sqrt(systemParams.Gamma) * sqrt(1 + 2*cpuMet.cot(oldBufferQuantity[idx+0])*cpuMet.cot(oldBufferQuantity[idx+0]) -\
+          2*cpuMet.cot(oldBufferQuantity[idx+0])*cpuMet.csc(oldBufferQuantity[idx+0])/sqr3) * sqrt(systemParams.dt) * cpuMet.randn(); 
 
         mem_Buffer[idx+0] = buffer[0];
         mem_Buffer[idx+1] = buffer[1];

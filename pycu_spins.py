@@ -1,6 +1,6 @@
 import cuda_interface as cusp
 import numpy as np
-
+import datetime
 
 class Randomizer:
 
@@ -22,7 +22,7 @@ class Randomizer:
         """
 
         np.random.seed(seed=seed)
-        self.size = size
+        self.size = 2*size
         self.box_muller = cusp.floatArray(self.size)
         self._box_muller()
 
@@ -41,9 +41,10 @@ class Randomizer:
         self._generate()
         r = np.sqrt(-2*np.log(self._u1))
         theta = 2*np.pi*self._u2
-        self._move(r* np.cos(theta), self.box_muller)
+        self.b_mul_ch = r * np.cos(theta)# * 0 + (np.pi - np.arccos(1/np.sqrt(3)))
+        self._move(self.b_mul_ch , self.box_muller)
 
-    def _move(self, source_buffer:SwigObject, destination_buffer:list):
+    def _move(self, source_buffer, destination_buffer:list, fact:int = 1):
         """
             Method copying data from carray (floatAray) to Python list
             
@@ -54,7 +55,7 @@ class Randomizer:
             Return:
                 None
         """
-        for i in range(self.size):
+        for i in range(self.size*fact):
             destination_buffer[i] = source_buffer[i]
     
     def _generate(self):
@@ -78,7 +79,7 @@ class CudaSpins(Randomizer):
         from Randomizer class.
     """
 
-    def __init__(self, params:dict={}, gpu_params:dict={}, seed:int=521):
+    def __init__(self, params:dict={}, gpu_params:dict={}, seed:int=1337):
 
         """
             Initialization of spin simulation on GPU.
@@ -118,8 +119,9 @@ class CudaSpins(Randomizer):
         def wrapper(self, *args):
             func(self, *args)
             # TODO: Check if shift is okay AND adjust it both in python and CPP code
-            self._move(self._results_c, self.results)
+            # del self._results_c
             shift = self.params["tsteps"] // self.params["save_step"]
+            self._move(self._results_c, self.results, shift)
             if cusp.cvar.PLATFORM == "BOTH":
                 self.results = {
                                 "res_gpu": self.results[:shift], 
@@ -141,10 +143,13 @@ class CudaSpins(Randomizer):
             Return:
                 None
         """
+        start = datetime.datetime.now()
         cusp.simulate(self.box_muller if input_buffer is None else input_buffer, 
                                 self._results_c,
                                 self.params, 
                                 self.gpu_params)
+        end = datetime.datetime.now()
+        self.elapsed_time = (end-start).total_seconds() * 1000
         self._get_performance()
 
     def set_platform(self, platform:str ='CPU')->None:
@@ -160,8 +165,7 @@ class CudaSpins(Randomizer):
         cusp.cvar.PLATFORM = platform
         self._get_platform_info()
 
-    @staticmethod
-    def _get_performance()->None:
+    def _get_performance(self)->None:
         """
             Method prints time elaspsed during simulation mesured directlty within
             C code
@@ -176,6 +180,10 @@ class CudaSpins(Randomizer):
             print("CPU simulator elapsed time: ", cusp.cvar.TIME_CPU, " [ms]")
         if cusp.cvar.PLATFORM == "GPU" or cusp.cvar.PLATFORM == "BOTH":
             print("GPU simulator elapsed time: ", cusp.cvar.TIME_GPU, " [ms]")
+
+        sim_time = cusp.cvar.TIME_CPU if cusp.cvar.PLATFORM == "CPU" else cusp.cvar.TIME_GPU
+        print("Python elapsed time = {:.3f} [ms], ratio = {:.3f}".format(self.elapsed_time,  
+        self.elapsed_time / (sim_time)))
 
     @staticmethod    
     def _get_platform_info()->None:
@@ -202,9 +210,12 @@ class CudaSpins(Randomizer):
                 None
         """
         # TODO: Check if size of spins is correct
-        platfrom_fact = 2 if cusp.cvar.PLATFORM == "BOTH" else 1
-        self.results = np.zeros(platfrom_fact*self.size, dtype=np.float32)
-        self._results_c = cusp.floatArray(platfrom_fact * self.size)
+        platfrom_fact = 4 if cusp.cvar.PLATFORM == "BOTH" else 1
+        buffer_size = platfrom_fact * \
+            self.size * \
+            (self.params["tsteps"] // self.params["save_step"] - self.params["save_start"])
+        self.results = np.zeros(buffer_size, dtype=np.float32)
+        self._results_c = cusp.floatArray(buffer_size)
     
     def _load_default_params(self)->None:
         """
@@ -220,10 +231,10 @@ class CudaSpins(Randomizer):
         if self.params == {}:
            self.params = {
                 "system_type": 16,
-                "num_bodies": 32,
+                "num_bodies": 128,
                 "dt": 0.001,
-                "tsteps": 1000,
-                "save_step":10,
+                "tsteps": 10000,
+                "save_step":100,
                 "nx_spins": 64,
                 "ny_spins": 64,
                 "nz_spins": 1,
@@ -233,13 +244,17 @@ class CudaSpins(Randomizer):
                 "nth2": 0,
                 "gamma": 1,
                 "gamma_phase": 0,
-                "jx": 0.5,
-                "jy": 0.2,
-                "jz": 0.7,
+                "jx": 0.9,
+                "jy": 0.9,
+                "jz": 1,
                 "Omega_x": 0,
                 "Omega_y": 0,
                 "Omega_z": 0,
-                "Omega_D": 0
+                "Omega_D": 0,
+                "save_start":0
                 }
         if self.gpu_params == {}:
-           self.gpu_params = {"block_size": 254, "blocks_num": 4}
+           self.gpu_params = {
+            "block_size": 256, 
+            "blocks_num": 1,
+            "use_host_mem": 1}

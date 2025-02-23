@@ -91,7 +91,6 @@ clean:
 	$(RM) ./cuda_interface_wrap.cxx
 	$(RM) ./_cuda_interface.so
 
-
 # /usr/local/cuda/bin/nvcc -ccbin g++ -I../../../Common -m64 -ftz=true --threads 0 --std=c++11 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_86,code=compute_86 -o bodysystemcuda.o -c bodysystemcuda.cu
 
 # /usr/local/cuda/bin/nvcc -ccbin g++ -I../../../Common 

@@ -6,32 +6,15 @@
 #include <assert.h>
 #include <memory.h>
 #include <cuda_runtime.h>
-// #include "cuda_runtime_api.h"
-
-void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
-    PhysicalParams *params, int step, int nBodies, int blockSize);
-
-//void copyMemoryToDevice(float *host, float *device, int numBodies);
-//void copyMemoryToHost(float *host, float *device, int numBodies);
-void allocateMemory(float *data[2], unsigned int memorySize);
-void matchMemory(float *dataDevice[2], float *dataHost[2]);
 
 
-KernelHandler::KernelHandler(
-    PhysicalParams *params, 
-    unsigned int numBlocks, 
-    unsigned int blockSize): NBodySimulation(params)
+KernelHandler::KernelHandler(PhysicalParams params, GPUDev gpuParams): NBodySimulation(params)
 {
     memRead = 0;
     memWrite = 1;
+    systemParams = params;
+    gDev = gpuParams;
     
-    d_blockSize = blockSize;
-    d_numBlocks = numBlocks;
-
-    mem_deviceBuffer[0] = 0;
-    mem_deviceBuffer[1] = 0;
-    
-    setPhysicalParams(params);
     _initialize();
 }
 
@@ -48,7 +31,7 @@ void KernelHandler::run(int step)
     runNbody(
         mem_deviceBuffer[memRead], 
         mem_deviceBuffer[memWrite],
-        systemParams, step, nBodies, d_blockSize);
+        systemParams, kernelParams);
 
     std::swap(memRead, memWrite);    
 }
@@ -57,52 +40,93 @@ void KernelHandler::_initialize()
 {
     assert(!isInitialized);
 
-    nBodies = systemParams->numBodies;
-    unsigned int memorySize = sizeof(float) * 2 * nBodies;
+    nBodies = systemParams.numBodies;
+    useHostMem = gDev.useHostMem;
 
-    mem_hostBuffer[0] = new float[memorySize];
-    mem_hostBuffer[1] = new float[memorySize];
-
-    memset(mem_hostBuffer[0], 0, memorySize);
-    memset(mem_hostBuffer[1], 0, memorySize);
-
-    allocateMemory(mem_deviceBuffer, memorySize);
-    matchMemory(mem_deviceBuffer, mem_hostBuffer);
-
+    kernelParams.blockSize = gDev.blockSize;
+    kernelParams.numBlocks = (nBodies + gDev.blockSize - 1) / gDev.blockSize;
+    kernelParams.sharedMemSize = gDev.blockSize * 2 * sizeof(float);
+    kernelParams.numTiles = (nBodies + gDev.blockSize - 1) / gDev.blockSize;
+    
+    
+    allocateKernelMemory();
+    initializeRandomStates(kernelParams);
     isInitialized = true;
 }
-    // cudaMalloc((void**)&mem_deviceBuffer[0], memorySize);
-    // cudaMalloc((void**)&mem_deviceBuffer[1], memorySize);
 
 void KernelHandler::_summarize() 
 {
     assert(isInitialized);
-    if(mem_hostBuffer[0])
-        delete [] mem_hostBuffer[0];
-    if(mem_hostBuffer[1])
-        delete [] mem_hostBuffer[1];
-    if(mem_deviceBuffer[0])
-        cudaFree(mem_deviceBuffer[0]);
-    if(mem_deviceBuffer[1])
-        cudaFree(mem_deviceBuffer[1]);
+    freeKernelMemory();
 };
 
-void KernelHandler::setPhysicalParams(PhysicalParams *params)
+void KernelHandler::allocateKernelMemory()
 {
-    systemParams = params;
+    mem_deviceBuffer[0] = 0;
+    mem_deviceBuffer[1] = 0;
+
+    unsigned int memorySize = nBodies * 2 * sizeof(float);
+    
+    cudaMalloc(
+        &kernelParams.rngStates, 
+        kernelParams.numBlocks * kernelParams.blockSize * sizeof(curandState));
+
+    if(useHostMem){
+        std::cout << "[INFO] Host memory enabled" << std::endl;
+
+        allocateMappedMemory(mem_hostBuffer, memorySize);
+        matchMemory(mem_deviceBuffer, mem_hostBuffer);
+    }
+    else{
+        std::cout << "[INFO] Host memory disabled" << std::endl;
+
+        mem_hostBuffer[0] = new float[memorySize];
+        memset(mem_hostBuffer[0], 0, memorySize);
+        allocateMemory(mem_deviceBuffer, memorySize);
+    }
+}
+
+void KernelHandler::freeKernelMemory()
+{
+    if(kernelParams.rngStates)
+        cudaFree(kernelParams.rngStates);
+    // if(kernelParams.randomValues)
+    //     cudaFree(randomValues);
+
+    if(useHostMem){
+        if(mem_hostBuffer[0])
+            cudaFreeHost(mem_hostBuffer[0]);
+        if(mem_hostBuffer[1])
+            cudaFreeHost(mem_hostBuffer[1]);
+    }
+    else{
+        if(mem_hostBuffer[0])
+            delete [] mem_hostBuffer[0];
+        if(mem_hostBuffer[1])
+            delete [] mem_hostBuffer[1];
+        if(mem_deviceBuffer[0])
+            cudaFree(mem_deviceBuffer[0]);
+        if(mem_deviceBuffer[1])
+            cudaFree(mem_deviceBuffer[1]);
+    }
 }
 
 float *KernelHandler::readMemory()
 {
     assert(isInitialized);
-    float *hostData = mem_hostBuffer[memRead];
-    //copyMemoryToHost(hostData, mem_deviceBuffer[memRead], nBodies);
-    return hostData;
+    hostRead =  (useHostMem) ? memRead : 0;
+    if(!useHostMem)
+        copyMemoryToHost(mem_hostBuffer[hostRead], mem_deviceBuffer[memRead], nBodies);
+    return mem_hostBuffer[hostRead];
 }
 
 void KernelHandler::writeMemory(float *data)
 {
     assert(isInitialized);
-    memcpy(mem_hostBuffer[memWrite], data, nBodies * 4 * sizeof(float));    
-//copyMemoryToDevice(mem_deviceBuffer[memWrite], data, nBodies);
+
+    if(useHostMem)
+        memcpy(mem_hostBuffer[memWrite], data, 2 * nBodies * sizeof(float));    
+    else
+        copyMemoryToDevice(mem_deviceBuffer[memWrite], data, nBodies);
 }
+
