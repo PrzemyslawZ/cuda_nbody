@@ -6,39 +6,23 @@ def main():
     cs = CudaSpins(
         params = 
                 {
-                "system_type": 16,
-                "num_bodies": 1024,
-                "dt": 1e-3, #keep it 
-                "tsteps": 200, #20000, #keep it 
-                "save_step":1,#10, #keep it 
-                "nx_spins": 64,
-                "ny_spins": 64,
-                "nz_spins": 1,
-                "gamma1": 0,
-                "gamma2": 0,
-                "nth1": 0,
-                "nth2": 0,
+                "num_bodies": 256,
+                "dt": 1e-3, 
+                "tsteps": 20000, #20000 
+                "save_step":1, #10
                 "gamma": 1.0,
-                "gamma_phase": 0,
                 "jx": 0.9,
                 "jy": 0.9,
                 "jz": 1.0,
-                "Omega_x": 0,
-                "Omega_y": 0,
-                "Omega_z": 0,
-                "Omega_D": 0,
                 "save_start":0
                 },
         gpu_params = {
-            "block_size":256, 
-            "blocks_num": 1,
+            "block_size":128, 
             "use_host_mem": True}
                 )
-    # cs.get_platform_options()
 
     cs.set_platform("GPU")
     cs.run()
-
 
     tsteps = cs.params["tsteps"] // cs.params["save_step"]
 
@@ -53,8 +37,6 @@ def main():
     sx_mean = np.reshape(sx, (-1, cs.params["num_bodies"])).mean(axis=-1)
     sy_mean = np.reshape(sy, (-1, cs.params["num_bodies"])).mean(axis=-1)
     sz_mean = np.reshape(sz, (-1, cs.params["num_bodies"])).mean(axis=-1)
-
-    # print(cs.results)
 
     plt.figure(figsize=(6,2.5))
     plt.subplot(121)

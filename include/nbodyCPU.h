@@ -18,13 +18,11 @@ class CPUmethods{
     public:
         CPUmethods() {};
         virtual ~CPUmethods() {};
-        //int A = 0;
 
     private:
         float randn();
         float cot(float);
         float csc(float);
-        //void randomizeSystem(float*,int);
 };
 
 class NbodySimulationCPU : public NBodySimulation{
@@ -53,9 +51,6 @@ class NbodySimulationCPU : public NBodySimulation{
         void simulate();
         float3CPU computeInteraction(float*);
         float interact(int id1, int id2);
-
-//        float m_damping;
-//        float m_e2;
 };
 
 #include "nbodyCPU_impl.h"

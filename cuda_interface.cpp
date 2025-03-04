@@ -18,31 +18,17 @@ std::string PLATFORM = "CPU";
 void loadParams(std::map<std::string, float> params, 
                 std::map<std::string, int> gpuParams)
 {
-    // PARAMS.systemType = params["system_type"];
-    PARAMS.numBodies = (int)params["num_bodies"];
     PARAMS.dt = params["dt"];
-    PARAMS.steps = (long)params["tsteps"];
-    PARAMS.saveStep = (int)params["save_step"];
-    PARAMS.Nx_spins = (int)params["nx_spins"];
-    PARAMS.Ny_spins = (int)params["ny_spins"];
-    PARAMS.Nz_spins = (int)params["ny_spins"];
-    // PARAMS.Gamma1 = params["gamma1"];
-    // PARAMS.Gamma2 = params["gamma2"];
-    // PARAMS.Nth1 = (int)params["nth1"];
-    // PARAMS.Nth2 = (int)params["nth2"];
     PARAMS.Gamma = params["gamma"];
-    // PARAMS.GammaPhase = params["gamma_phase"];
     PARAMS.Jx = params["jx"];
     PARAMS.Jy = params["jy"];
     PARAMS.Jz = params["jz"];
-    // PARAMS.Omegax = params["Omega_x"];
-    // PARAMS.Omegay = params["Omega_y"];
-    // PARAMS.Omegaz = params["Omega_z"];
-    // PARAMS.OmegaD = params["Omega_D"];  
-    PARAMS.saveStartPoint = params["save_start"];
+    PARAMS.saveStartPoint = (int)params["save_start"];
+	PARAMS.steps = (long)params["tsteps"];
+    PARAMS.saveStep = (int)params["save_step"];
+	PARAMS.numBodies = (int)params["num_bodies"];
 
-    GPU_PARAMS.blockSize = gpuParams["block_size"];
-    GPU_PARAMS.numBlocks = gpuParams["blocks_num"];
+	GPU_PARAMS.blockSize = gpuParams["block_size"];
     GPU_PARAMS.useHostMem = gpuParams["use_host_mem"];
 }
 
@@ -73,7 +59,7 @@ void initialize(float *inputBuffer,
     timer->createTimer();
 }
 
-// #TODO: Figure out copying issue
+
 void runGPUSimulation(float *resultsBuffer)
 {
     int ptrShift = 2 * PARAMS.numBodies;
@@ -91,7 +77,6 @@ void runGPUSimulation(float *resultsBuffer)
                    ptrShift * sizeof(float));
             iSave++;
         }
-        // std::cout<< "read: " << kernel->memRead << " write:" << kernel->memWrite <<std::endl;
     } 
     cudaDeviceSynchronize();
     timer->stopTimer();

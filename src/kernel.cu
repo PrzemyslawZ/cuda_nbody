@@ -4,7 +4,7 @@
 #include <math_constants.h>
 #include "../include/nbody_simulation.h"
 #include <math.h>
-// #include <curand_kernel.h>
+
 
 #include <cstdio>
 namespace cg = cooperative_groups;
@@ -13,7 +13,7 @@ void runNbody(float *newBuffQuantity, float *oldBuffQuantity,
     PhysicalParams params, KernelParams kernelParams);
     void initializeRandomStates(KernelParams kernelParams);
 void copyMemoryToDevice(float *host, float *device, int numBodies);
-void copyMemoryToHost(float *host, float *device, int numBodies);
+void copyMemoryToHost(float *host, float *device, int nDestructorumBodies);
 void allocateMappedMemory(float * data[2], unsigned int memorySize);
 void allocateMemory(float *data[2], unsigned int memorySize);
 void matchMemory(float *dataDevice[2], float *dataHost[2]);
@@ -50,29 +50,13 @@ __device__ float3 computeInteraction(float2* buffer, int idx, int numTiles, cg::
   return interaction;
 }
 
-// __global__ void generate_kernel(curandState *my_curandstate, const unsigned int n, const unsigned *max_rand_int, const unsigned *min_rand_int,  unsigned int *result){
-
-//     int idx = threadIdx.x + blockDim.x*blockIdx.x;
-  
-//     int count = 0;
-//     while (count < n){
-//       float myrandf = curand_uniform(my_curandstate+idx);
-//       myrandf *= (max_rand_int[idx] - min_rand_int[idx]+0.999999);
-//       myrandf += min_rand_int[idx];
-//       int myrand = (int)truncf(myrandf);
-  
-//       assert(myrand <= max_rand_int[idx]);
-//       assert(myrand >= min_rand_int[idx]);
-//       result[myrand-min_rand_int[idx]]++;
-//       count++;}
-//   }
-  
 
 static __global__ void setRnStates(curandState *rndStates, unsigned long long seed)
 {
     int idx = __mul24(blockIdx.x, blockDim.x) + threadIdx.x;
     curand_init(seed+idx, idx, 0, &rndStates[idx]);
 }
+
 
  __global__ void simulate(float2 *newBuffQuantity, float2 *oldBuffQuantity,
                         PhysicalParams params, int numTiles, 

@@ -1,4 +1,3 @@
-
 #include "device_timer.h"
 
 #include <cuda.h>

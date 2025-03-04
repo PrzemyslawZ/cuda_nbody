@@ -6,7 +6,7 @@ class Randomizer:
 
     """
         Interface for generating Box-Muller transformation for random input for 
-        N-body spin simulation        
+        N-body spin simulation
     """
 
     def __init__(self, size: int, seed: int):
@@ -41,7 +41,7 @@ class Randomizer:
         self._generate()
         r = np.sqrt(-2*np.log(self._u1))
         theta = 2*np.pi*self._u2
-        self.b_mul_ch = r * np.cos(theta)# * 0 + (np.pi - np.arccos(1/np.sqrt(3)))
+        self.b_mul_ch = r * np.cos(theta)
         self._move(self.b_mul_ch , self.box_muller)
 
     def _move(self, source_buffer, destination_buffer:list, fact:int = 1):
@@ -230,31 +230,17 @@ class CudaSpins(Randomizer):
         """
         if self.params == {}:
            self.params = {
-                "system_type": 16,
-                "num_bodies": 128,
+                "num_bodies": 1024,
                 "dt": 0.001,
-                "tsteps": 10000,
+                "tsteps": 1000,
                 "save_step":100,
-                "nx_spins": 64,
-                "ny_spins": 64,
-                "nz_spins": 1,
-                "gamma1": 0,
-                "gamma2": 0,
-                "nth1": 0,
-                "nth2": 0,
-                "gamma": 1,
-                "gamma_phase": 0,
+                "gamma": 1.0,
                 "jx": 0.9,
                 "jy": 0.9,
                 "jz": 1,
-                "Omega_x": 0,
-                "Omega_y": 0,
-                "Omega_z": 0,
-                "Omega_D": 0,
                 "save_start":0
                 }
         if self.gpu_params == {}:
            self.gpu_params = {
             "block_size": 256, 
-            "blocks_num": 1,
-            "use_host_mem": 1}
+            "use_host_mem": False}

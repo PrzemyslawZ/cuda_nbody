@@ -33,15 +33,14 @@ class KernelHandler : public NBodySimulation{
 
         float* mem_deviceBuffer[2];
 
-        bool useHostMem;
-
         unsigned int hostRead;
         unsigned int memRead;
         unsigned int memWrite;
 
         unsigned int d_blockSize;
         unsigned int d_numBlocks;
-        
+        bool useHostMem;
+
         virtual void _initialize();
         virtual void _summarize();
     

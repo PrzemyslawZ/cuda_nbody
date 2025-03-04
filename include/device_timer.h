@@ -1,6 +1,5 @@
 #ifndef __DEVICE_TIMER__
 #define __DEVICE_TIMER__
-// #pragma once
 
 
 #include <sys/time.h>

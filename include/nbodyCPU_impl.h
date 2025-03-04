@@ -6,40 +6,6 @@
 #include <omp.h>
 
 
-/*double CPUmethods::randn()
-{
-    
-    double u1 = rand() / (double)RAND_MAX; // Uniform random number between 0 and 1
-    double u2 = rand() / (double)RAND_MAX; // Uniform random number between 0 and 1
-    while(u1==0){
-      u1 = rand() / (double)RAND_MAX; // Uniform random number between 0 and 1 and avoid 0
-    }
-    // Box-Muller transform
-    double z0 = sqrt(-2 * log(u1)) * cos(2 * M_PI * u2); // Normally distributed random number
-    // double z1 = sqrt(-2 * log(u1)) * sin(2 * M_PI * u2); // Second normally distributed random number (optional)
-
-    return z0;
-}
-    
-void CPUmethods::randomizeSystem(float *inputBuffer, int numBodies)
-{
-    int buffIdx = 0, i = 0;
-    while (i < numBodies)
-    {
-        float2CPU sample;
-
-        sample.x = rand() / (float) RAND_MAX * 2 * 3.141;
-        sample.y = rand() / (float) RAND_MAX * 2 * 3.141;
-
-
-        samplesBuffer[buffIdx++] = sample.x;
-        samplesBuffer[buffIdx++] = sample.y;
-
-        i++;
-    }
-}
-*/
-
 float CPUmethods::cot(float x)
 {
   return 1/tan(x);
