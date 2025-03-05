@@ -90,6 +90,7 @@ void KernelHandler::freeKernelMemory()
 {
     if(kernelParams.rngStates)
         cudaFree(kernelParams.rngStates);
+
     if(useHostMem){
         if(mem_hostBuffer[0])
             cudaFreeHost(mem_hostBuffer[0]);
@@ -99,8 +100,6 @@ void KernelHandler::freeKernelMemory()
     else{
         if(mem_hostBuffer[0])
             delete [] mem_hostBuffer[0];
-        if(mem_hostBuffer[1])
-            delete [] mem_hostBuffer[1];
         if(mem_deviceBuffer[0])
             cudaFree(mem_deviceBuffer[0]);
         if(mem_deviceBuffer[1])
