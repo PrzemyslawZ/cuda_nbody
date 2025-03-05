@@ -51,7 +51,7 @@ endif
 
 all: build
 
-build: nbodyBench
+build: spinSimulation
 
 kernel.o: $(SRC_DIR)/kernel.cu 
 	$(EXEC) $(NVCC)  --compiler-options -fPIC -shared $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $< 
@@ -72,19 +72,19 @@ cuda_interface_wrap.o: cuda_interface_wrap.cxx
 main.o: main.cpp
 	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
-nbodyBench: main.o kernel.o
+spinSimulation: main.o kernel.o
 	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES) $(CUDA_LINK_LIBS)
 	$(EXEC) mkdir -p $(OBJ_DIR)
 
 run: build
-	$(EXEC) ./nbodyBench
+	$(EXEC) ./spinSimulation
 
 swig: _cuda_interface.so
 
 clean:
 	$(RM) bin/* *.o
 	$(RM)  *.o
-	$(RM) ./nbodyBench
+	$(RM) ./spinSimulation
 	$(RM) ./_cuda_interface.py
 	$(RM) ./cuda_interface.py
 	$(RM)  *.o

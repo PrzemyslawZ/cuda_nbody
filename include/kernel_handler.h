@@ -21,7 +21,7 @@ class KernelHandler : public NBodySimulation{
 
         float* mem_hostBuffer[2];
 
-        virtual void run(int);
+        virtual void run();
         virtual float* readMemory();
         virtual void writeMemory(float*);
 

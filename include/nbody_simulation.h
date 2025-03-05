@@ -41,7 +41,7 @@ class NBodySimulation{
         NBodySimulation(PhysicalParams params) {nBodies = params.numBodies; isInitialized=false;};
         virtual ~NBodySimulation() {};
 
-        virtual void run(int) = 0;
+        virtual void run() = 0;
         virtual float* readMemory() = 0;
         virtual void writeMemory(float*) = 0;
 

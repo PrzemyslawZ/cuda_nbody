@@ -2,7 +2,8 @@ from pycu_spins import CudaSpins, np, cusp
 import matplotlib.pyplot as plt
 
 def main():
-    
+
+	# Call the interface class with parameters for GPU and physical simulation
     cs = CudaSpins(
         params = 
                 {
@@ -21,9 +22,14 @@ def main():
             "use_host_mem": True}
                 )
 
+	# You can select your platform GPU / CPU
     cs.set_platform("GPU")
+
+	#Run simulation
     cs.run()
 
+
+	# Process the results 
     tsteps = cs.params["tsteps"] // cs.params["save_step"]
 
     time = np.linspace(0, cs.params['tsteps'] * cs.params["dt"], tsteps)
@@ -59,6 +65,7 @@ def main():
     plt.savefig(f"./test_plot_{cusp.cvar.PLATFORM}_hostMem={bool(cs.gpu_params["use_host_mem"])}.png", dpi=200)
     plt.close()
 
+	# Delete interface (unnecessary but it's a good habbit to have)
     del cs
     
     return

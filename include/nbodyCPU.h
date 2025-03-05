@@ -31,7 +31,7 @@ class NbodySimulationCPU : public NBodySimulation{
         NbodySimulationCPU(PhysicalParams);
         virtual ~NbodySimulationCPU();
 
-        virtual void run(int);
+        virtual void run();
         virtual float* readMemory();
         virtual void writeMemory(float*);
 

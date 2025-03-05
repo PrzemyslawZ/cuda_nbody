@@ -68,7 +68,7 @@ void runGPUSimulation(float *resultsBuffer)
     timer->startTimer();
     for (int tStep = 0; tStep < PARAMS.steps; tStep++)
     {
-        kernel->run(tStep);
+        kernel->run();
         if(tStep%PARAMS.saveStep==0 && tStep >= PARAMS.saveStartPoint)
         {
             cudaDeviceSynchronize();
@@ -93,7 +93,7 @@ void runCPUSimulation(float *resultsBuffer)
     timer->startTimer();
     for (int tStep = 0; tStep < PARAMS.steps; tStep++)
     {
-        host->run(0);
+        host->run();
         if(tStep%PARAMS.saveStep==0 && tStep >= PARAMS.saveStartPoint)
         {
             memcpy(resultsBuffer + ptrShift*iSave, 

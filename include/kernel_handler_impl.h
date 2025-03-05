@@ -24,7 +24,7 @@ KernelHandler::~KernelHandler()
     nBodies = 0;
 }
 
-void KernelHandler::run(int step)
+void KernelHandler::run()
 {
     assert(isInitialized);
 

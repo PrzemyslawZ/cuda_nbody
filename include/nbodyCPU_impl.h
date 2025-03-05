@@ -46,7 +46,7 @@ NbodySimulationCPU::~NbodySimulationCPU()
     nBodies = 0;
 }
 
-void NbodySimulationCPU::run(int step)
+void NbodySimulationCPU::run()
 {
     simulate();
     std::swap(memRead, memWrite);
