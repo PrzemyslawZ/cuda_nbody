@@ -6,13 +6,11 @@
 #include <sys/time.h>
 #include <math.h>
 #include <cmath>
-#include <random> // do we need it here ? 
+#include <random> 
 #include <unistd.h> 
 #include <map>
 
 extern double TIME_GPU;
-extern double TIME_CPU;
-extern std::string PLATFORM;
 
 extern void simulate(
     float *inputBuffer, 

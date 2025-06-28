@@ -15,29 +15,9 @@ namespace std {
     %template(map_string_int) map<string, int>;
 }
 
-// %inline %{
-//     extern void simulate(
-//         float *inputBuffer, 
-//         float *resultsBuffer,  
-//         std::map<std::string, float> params, 
-//         std::map<std::string, int> gpuParams);
-
-//         extern double TIME_GPU, TIME_CPU;
-//         extern std::string PLATFORM;
-
-
-// %}
-
-// %init %{
-// import_array();
-// %}
 %array_class(float, floatArray);
-
 %include "cuda_interface.h"
 
-
-// extern double TIME_GPU, TIME_CPU;
-// extern std::string PLATFORM;
 
 extern void simulate(
     float *inputBuffer, 
@@ -45,5 +25,10 @@ extern void simulate(
     std::map<std::string, float> params, 
     std::map<std::string, int> gpuParams);
 
+
+// IN CASE OF NUMPY ARRAYS 
+// %init %{
+// import_array();
+// %}
 // %apply (float* IN_ARRAY1, int DIM1) {(float* inputBuffer, int ibuffDim)};
 // %apply (float* IN_ARRAY1, int DIM1) {(float* resultsBuffer, int rbuffDim)};
