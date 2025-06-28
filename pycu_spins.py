@@ -1,50 +1,55 @@
 import cuda_interface as cusp
+import pandas as pd
 import numpy as np
 import datetime
 
-class Randomizer:
+class Initializer:
 
     """
-        Interface for generating Box-Muller transformation for random input for 
-        N-body spin simulation
+        Interface generates or loading initial state for N-body spin simulation
     """
 
-    def __init__(self, size: int, seed: int):
-
+    def __init__(self, model:int, size: int, seed: int, file: str=None, initial_state: np.array=None)->None:
         """
-            Initialization of random input.
+            Initialization of initial input.
 
             Args:
-                size (int): number of random samples to be generated 
-                (len of results and imput buffer)
-                
+                model (int) - type of  model we want to simulate
+                size (int): number of random samples to be generated (len of results and imput buffer)
                 seed (int): seed for uniform distribution
+                file (str): initial state txt file
+                initial_state (np.array): initial state for simulation
         """
+        self.size = 3 * size if model == 2 else 2 * size
+        self.initial_state = cusp.floatArray(self.size)
 
-        np.random.seed(seed=seed)
-        self.size = 2*size
-        self.box_muller = cusp.floatArray(self.size)
-        self._box_muller()
+        if file==None:
+            self._generate_initial_state(seed)
+        elif initial_state !=None:
+            self.generated_state = initial_state
+        else:
+            self._load_initalize_state(file)
+
+        self._move(self.generated_state , self.initial_state)
 
     def __del__(self):
-        del self._u1, self._u2
-        del self._z0, self.box_muller
+        del self.initial_state, self.generated_state
 
-    def _box_muller(self):
-    
+    def _generate_initial_state(self, seed)->None:
         """
-           Box-Muller transformation gerneration
+           Method generating uniform distribution samples - initial state
         
            Return:
                 None
         """
-        self._generate()
-        r = np.sqrt(-2*np.log(self._u1))
-        theta = 2*np.pi*self._u2
-        self.b_mul_ch = r * np.cos(theta)
-        self._move(self.b_mul_ch , self.box_muller)
 
-    def _move(self, source_buffer, destination_buffer:list, fact:int = 1):
+        np.random.seed(seed=seed)
+        self.generated_state = np.concatenate([
+            np.random.uniform(size=self.size // 2, low=0.0, high=2*np.pi),
+            np.random.uniform(size=self.size // 2, low=0.0, high=np.pi)
+            ])
+
+    def _move(self, source_buffer, destination_buffer:list, fact:int = 1)->None:
         """
             Method copying data from carray (floatAray) to Python list
             
@@ -57,60 +62,68 @@ class Randomizer:
         """
         for i in range(self.size*fact):
             destination_buffer[i] = source_buffer[i]
-    
-    def _generate(self):
+
+    def _load_data(self, file: str)->None:
         """
-            Method generating uniform distribution samples
-            
+            Method loads files with initial state into data frame
+
             Args:
-                source_buffer (SwigObject): source data to be copied
-                destination buffer (list): destination list to which we copy data
-            
+                file (str): initial state txt file
+
             Return:
                 None
         """
-        self._u1 = np.random.uniform(size=self.size)
-        self._u2 = np.random.uniform(size=self.size)
 
-class CudaSpins(Randomizer):
+        try:
+            self.df = pd.read_csv(file, names=["sx", "sy", "sz"]).astype(np.float32)
+        except:
+            exit("[ERROR] Cannot open the file, (3 separated columns expected)")
+
+    def _load_initalize_state(self, file: str)->None: 
+        """
+            Method computes phi and theta parameter
+
+            Args:
+                file (str): initial state txt file
+
+            Return:
+                None
+        """
+        self._load_data(file)
+        self.df['theta'] = self.df['sz'].apply(lambda x: -x / np.sqrt(3))
+        self.df['phi'] = (np.arctan(-self.df['sx'] / self.df['sy']) + (self.df['sy'] > 0) * np.pi) % (2 * np.pi)
+        self.generated_state = np.concatenate([self.df['theta'], self.df['phi']])
+
+class CudaSpins(Initializer):
     
     """
         Interface for communication with CUDA code. Class inherits all method 
-        from Randomizer class.
+        from Initializer class.
     """
 
-    def __init__(self, params:dict={}, gpu_params:dict={}, seed:int=1337):
-
+    def __init__(self, params:dict={}, gpu_params:dict={}, seed:int=1337, file:str=None, initial_state: np.array=None):
         """
             Initialization of spin simulation on GPU.
 
             Args:
                 params (dict): physical parameters for spin simulations 
-                gpu_params (dict): kernel parameters for size of GPU computational
-                grid
-                
+                gpu_params (dict): kernel parameters for size of GPU computational grid
                 seed (int): seed for uniform distribution
+                file (str): initial state txt file
+                initial_state (np.array): initial state for simulation
         """
 
         self.params = params
         self.gpu_params = gpu_params
 
         self._load_default_params()
-        super().__init__(self.params["num_bodies"], seed)
+        super().__init__(
+            self.params["model"], self.params["num_bodies"], 
+            seed, file, initial_state)
         self._prepare_results_buffer()
 
     def __del__(self):
         del self.params, self.gpu_params, self.results
-
-    def get_platform_options(self)->None:
-        """
-            Method informs about possible computation platforms on which 
-            user may run the simulation.
-    
-            Return:
-                None
-        """
-        print("Available simulation platforms: CPU, GPU, BOTH")
 
     def get_results(func):
         """
@@ -118,52 +131,32 @@ class CudaSpins(Randomizer):
         """
         def wrapper(self, *args):
             func(self, *args)
-            # TODO: Check if shift is okay AND adjust it both in python and CPP code
-            # del self._results_c
             shift = self.params["tsteps"] // self.params["save_step"]
-            self._move(self._results_c, self.results, shift)
-            if cusp.cvar.PLATFORM == "BOTH":
-                self.results = {
-                                "res_gpu": self.results[:shift], 
-                                "res_cpu": self.results[shift:]
-                               }
-            else:
-                pass
+            self._move(self._results_cuda, self.results, shift)
         return wrapper
 
     @get_results
-    def run(self,input_buffer:list=None)->None:
+    def run(self)->None:
         """
             Method calls C simulation function and outputs perormance mesured 
             directly within C code.
 
             Args:
-                input_buffer (list): input for spin simulation (initial values)
+                None
 
             Return:
                 None
         """
+
         start = datetime.datetime.now()
-        cusp.simulate(self.box_muller if input_buffer is None else input_buffer, 
-                                self._results_c,
-                                self.params, 
-                                self.gpu_params)
+        cusp.simulate(self.initial_state, 
+                        self._results_cuda,
+                        self.params, 
+                        self.gpu_params)
+        
         end = datetime.datetime.now()
         self.elapsed_time = (end-start).total_seconds() * 1000
         self._get_performance()
-
-    def set_platform(self, platform:str ='CPU')->None:
-        """
-            Method sets platform on which simulation will be performed
-
-            Args:
-                paltform (str): platform type
-
-            Return:
-                None
-        """
-        cusp.cvar.PLATFORM = platform
-        self._get_platform_info()
 
     def _get_performance(self)->None:
         """
@@ -176,27 +169,11 @@ class CudaSpins(Randomizer):
             Return:
                 None
         """
-        if cusp.cvar.PLATFORM == "CPU" or cusp.cvar.PLATFORM == "BOTH":
-            print("CPU simulator elapsed time: ", cusp.cvar.TIME_CPU, " [ms]")
-        if cusp.cvar.PLATFORM == "GPU" or cusp.cvar.PLATFORM == "BOTH":
-            print("GPU simulator elapsed time: ", cusp.cvar.TIME_GPU, " [ms]")
 
-        sim_time = cusp.cvar.TIME_CPU if cusp.cvar.PLATFORM == "CPU" else cusp.cvar.TIME_GPU
-        print("Python elapsed time = {:.3f} [ms], ratio = {:.3f}".format(self.elapsed_time,  
-        self.elapsed_time / (sim_time)))
-
-    @staticmethod    
-    def _get_platform_info()->None:
-        """
-            Method prints enabled computation platfrom
-
-            Args:
-                None
-
-            Return:
-                None
-        """
-        print(f"[INFO] Platform enabled: {cusp.cvar.PLATFORM}")
+        print("Python elapsed time = {:.3f} [ms] GPU time = {:.3f} [ms], ratio = {:.3f}".format(
+            self.elapsed_time, cusp.cvar.TIME_GPU,
+            self.elapsed_time / (cusp.cvar.TIME_GPU)))
+        self.platf_time = cusp.cvar.TIME_GPU
 
     def _prepare_results_buffer(self)->None:
         """
@@ -209,13 +186,11 @@ class CudaSpins(Randomizer):
             Return:
                 None
         """
-        # TODO: Check if size of spins is correct
-        platfrom_fact = 4 if cusp.cvar.PLATFORM == "BOTH" else 1
-        buffer_size = platfrom_fact * \
-            self.size * \
+
+        buffer_size = self.size * \
             (self.params["tsteps"] // self.params["save_step"] - self.params["save_start"])
         self.results = np.zeros(buffer_size, dtype=np.float32)
-        self._results_c = cusp.floatArray(buffer_size)
+        self._results_cuda = cusp.floatArray(buffer_size)
     
     def _load_default_params(self)->None:
         """
@@ -228,6 +203,7 @@ class CudaSpins(Randomizer):
             Return:
                 None
         """
+        
         if self.params == {}:
            self.params = {
                 "num_bodies": 1024,
@@ -238,7 +214,9 @@ class CudaSpins(Randomizer):
                 "jx": 0.9,
                 "jy": 0.9,
                 "jz": 1,
-                "save_start":0
+                "save_start":0,
+                'sub_system_size': 32,
+                "model": 1,
                 }
         if self.gpu_params == {}:
            self.gpu_params = {
