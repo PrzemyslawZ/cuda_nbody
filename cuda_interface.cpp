@@ -1,18 +1,16 @@
 #include "./cuda_interface.h"
 #include "./include/kernel_handler.h"
-#include "./include/nbodyCPU.h"
 #include "./include/device_timer.h"
 
 KernelHandler *kernel = 0;
-NbodySimulationCPU *host = 0;
 DeviceTimer *timer = 0;
+
 
 struct PhysicalParams PARAMS;
 struct GPUDev GPU_PARAMS;
 
+
 double TIME_GPU = 0;
-double TIME_CPU = 0;
-std::string PLATFORM = "CPU";
 
 
 void loadParams(std::map<std::string, float> params, 
@@ -27,6 +25,7 @@ void loadParams(std::map<std::string, float> params,
 	PARAMS.steps = (long)params["tsteps"];
     PARAMS.saveStep = (int)params["save_step"];
 	PARAMS.numBodies = (int)params["num_bodies"];
+    PARAMS.model = (int)params["model"];
 
 	GPU_PARAMS.blockSize = gpuParams["block_size"];
     GPU_PARAMS.useHostMem = gpuParams["use_host_mem"];
@@ -35,16 +34,8 @@ void loadParams(std::map<std::string, float> params,
 
 void initializeSimulator(float *inputBuffer)
 {
-    if(PLATFORM == "GPU" || PLATFORM == "BOTH")
-    {
-        kernel = new KernelHandler(PARAMS, GPU_PARAMS);
-        kernel->writeMemory(inputBuffer);
-    }
-    if(PLATFORM == "CPU" || PLATFORM == "BOTH")
-    {
-        host = new NbodySimulationCPU(PARAMS);
-        host->writeMemory(inputBuffer);
-    }
+    kernel = new KernelHandler(PARAMS, GPU_PARAMS);
+    kernel->writeMemory(inputBuffer);
 }
 
 
@@ -62,7 +53,7 @@ void initialize(float *inputBuffer,
 
 void runGPUSimulation(float *resultsBuffer)
 {
-    int ptrShift = 2 * PARAMS.numBodies;
+    int ptrShift = kernel->modelFact * PARAMS.numBodies;
     int iSave = 0;
     timer->resetTimer();
     timer->startTimer();
@@ -84,36 +75,10 @@ void runGPUSimulation(float *resultsBuffer)
 }
 
 
-void runCPUSimulation(float *resultsBuffer)
-{
-    int ptrShift = 2 * PARAMS.numBodies;
-    int iSave = 0;
-
-    timer->resetTimer();
-    timer->startTimer();
-    for (int tStep = 0; tStep < PARAMS.steps; tStep++)
-    {
-        host->run();
-        if(tStep%PARAMS.saveStep==0 && tStep >= PARAMS.saveStartPoint)
-        {
-            memcpy(resultsBuffer + ptrShift*iSave, 
-                   host->readMemory(), 
-                   ptrShift * sizeof(float));
-            iSave++;
-        }
-    }
-    
-    timer->stopTimer();
-    TIME_CPU = timer->elapsedTime;
-}
-
-
 void closeSimulation()
 {
     if(kernel)
         delete kernel;
-    if(host)
-        delete host;
     if(timer)
         delete timer;
 }
@@ -128,9 +93,5 @@ void simulate(
     initialize(inputBuffer, params, gpuParams);
     if(kernel)
         runGPUSimulation(resultsBuffer);
-    if(host)
-        runCPUSimulation(resultsBuffer);
     closeSimulation();
 }; 
-
-

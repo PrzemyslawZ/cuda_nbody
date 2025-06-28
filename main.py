@@ -1,74 +1,35 @@
 from pycu_spins import CudaSpins, np, cusp
+from utils import ResultsHandler
 import matplotlib.pyplot as plt
+
+import pandas as pd
 
 def main():
 
-	# Call the interface class with parameters for GPU and physical simulation
-    cs = CudaSpins(
-        params = 
-                {
+    system_params = {
                 "num_bodies": 256,
-                "dt": 1e-3, 
-                "tsteps": 20000, #20000 
+                "dt": 10e-4,
+                "tsteps": 10000, 
                 "save_step":1, #10
                 "gamma": 1.0,
-                "jx": 0.9,
-                "jy": 0.9,
+                "jx": 0.9, 
+                "jy":0.5,
                 "jz": 1.0,
-                "save_start":0
-                },
-        gpu_params = {
-            "block_size":128, 
+                "save_start":0,
+                'sub_system_size': 16,
+                "model":2,
+                }
+ 
+    gpu_settings = {
+            "block_size":256,
             "use_host_mem": True}
-                )
 
-	# You can select your platform GPU / CPU
-    cs.set_platform("GPU")
+    # res_handl = ResultsHandler(system_params)
+    for _ in range(100):
+        cs = CudaSpins(params=system_params, gpu_params=gpu_settings)
+        cs.run()
+        del cs
 
-	#Run simulation
-    cs.run()
-
-
-	# Process the results 
-    tsteps = cs.params["tsteps"] // cs.params["save_step"]
-
-    time = np.linspace(0, cs.params['tsteps'] * cs.params["dt"], tsteps)
-    time_body = np.linspace(0, cs.params['tsteps'] * cs.params["dt"], 
-    tsteps*cs.params["num_bodies"])
-    
-    sx = np.sqrt(3)*np.sin(cs.results[::2]) * np.sin(cs.results[1::2])
-    sy = -np.sqrt(3)*np.sin(cs.results[::2]) * np.cos(cs.results[1::2])
-    sz = -np.sqrt(3)*np.cos(cs.results[::2])
-
-    sx_mean = np.reshape(sx, (-1, cs.params["num_bodies"])).mean(axis=-1)
-    sy_mean = np.reshape(sy, (-1, cs.params["num_bodies"])).mean(axis=-1)
-    sz_mean = np.reshape(sz, (-1, cs.params["num_bodies"])).mean(axis=-1)
-
-    plt.figure(figsize=(6,2.5))
-    plt.subplot(121)
-    plt.title("Intital conf")
-    plt.plot(time_body, sx, label="sx")
-    plt.plot(time_body, sy, label="sy")
-    plt.plot(time_body, sz, label="sz")
-    plt.xlabel("t x N", fontsize=14)
-    plt.ylabel("s", fontsize=14)
-    plt.subplot(122)
-    plt.title("Averaged conf")
-    plt.plot(time, sx_mean, label="<sx>")
-    plt.plot(time, sy_mean, label="<sxy>")
-    plt.plot(time, sz_mean, label="<sz>")    
-    plt.xlabel("t", fontsize=14)
-    plt.ylabel("<s>", fontsize=14)
-    plt.legend(frameon=True, prop={"size": 12})
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f"./test_plot_{cusp.cvar.PLATFORM}_hostMem={bool(cs.gpu_params["use_host_mem"])}.png", dpi=200)
-    plt.close()
-
-	# Delete interface (unnecessary but it's a good habbit to have)
-    del cs
-    
-    return
 
 if __name__ == '__main__':
     main()
