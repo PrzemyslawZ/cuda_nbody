@@ -52,7 +52,7 @@ __device__ void getNNIndices(int spinIdx, int numBodies, int sBs, int nnInds[4])
 __device__ float3 computeNBIntearaction(float2* buffer, int idx, int numTiles, cg::thread_block cta) 
 {
   extern __shared__ float2 sharedBuffer[];
-  float3 interaction = {0.0f, 0.0f, 0.0f, };
+  float3 interaction = {0.0f, 0.0f, 0.0f};
 
   for (int tile = 0; tile < numTiles; tile++) 
   {
@@ -92,7 +92,7 @@ __device__ float3 compute4BInteraction(float2* spinsBuff,
 }
 
 
-__device__ float3 compute4BInteraction(float3* spinsBuff, 
+__device__ float3 compute4BInteraction_xyz(float3* spinsBuff, 
     int spinIdx, int sBs, int numBodies, cg::thread_block cta)
 {
     float3 interaction = {0.0f, 0.0f, 0.0f};
@@ -113,8 +113,7 @@ __device__ float3 compute4BInteraction(float3* spinsBuff,
 }
 
 
-__global__ void simulate_xy_model(float2 *newBuffQuantity, float2 *oldBuffQuantity,
-    PhysicalParams params, int numTiles, curandState *rngStates)
+__global__ void simulate_xy_model(float2 *newBuffQuantity, float2 *oldBuffQuantity, PhysicalParams params, curandState *rngStates)
 {
     cg::thread_block cta = cg::this_thread_block();
 
@@ -143,8 +142,7 @@ __global__ void simulate_xy_model(float2 *newBuffQuantity, float2 *oldBuffQuanti
 
 
  __global__ void simulate(float2 *newBuffQuantity, float2 *oldBuffQuantity,
-                        PhysicalParams params, int numTiles, 
-                        curandState *rngStates)
+                PhysicalParams params, int numTiles, curandState *rngStates)
 {
     cg::thread_block cta = cg::this_thread_block();
     
@@ -156,62 +154,60 @@ __global__ void simulate_xy_model(float2 *newBuffQuantity, float2 *oldBuffQuanti
 
     curandState localState = rngStates[idx];
 
-    bufferQuant.x += (- 2 * params.Jx * sinf(oldBuffQuantity[idx].y) * sqr3 * interaction.x + \
-    2* params.Jy * cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.y ) * params.dt +  \
-    2 * params.Gamma * (cotf(oldBuffQuantity[idx].x) - cscf(oldBuffQuantity[idx].x)/sqr3) \
-    * params.dt;
+    bufferQuant.x += (- 2 * params.Jx * sinf(oldBuffQuantity[idx].y) * sqr3 * interaction.x + \ //theta
+                    2* params.Jy * cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.y ) * params.dt +  \
+                    2 * params.Gamma * (cotf(oldBuffQuantity[idx].x) - cscf(oldBuffQuantity[idx].x)/sqr3) \
+                    * params.dt;
 
-    bufferQuant.y += (- 2 * params.Jx * cotf(oldBuffQuantity[idx].x) * cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.x - \
-    2 * params.Jy * cotf(oldBuffQuantity[idx].x) * sinf(oldBuffQuantity[idx].y) \
-    * sqr3 * interaction.y + 2 * params.Jz * sqr3 * interaction.z) * params.dt + sqrtf(2) \
-    * sqrtf(params.Gamma) * sqrtf(1 + 2*cotf(oldBuffQuantity[idx].x)*cotf(oldBuffQuantity[idx].x) -\
-     2*cotf(oldBuffQuantity[idx].x)*cscf(oldBuffQuantity[idx].x)/sqr3) * sqrtf(params.dt) * curand_normal(&localState);
+    bufferQuant.y += (- 2 * params.Jx * cotf(oldBuffQuantity[idx].x) * cosf(oldBuffQuantity[idx].y) * sqr3 * interaction.x - \ //phi
+                    2 * params.Jy * cotf(oldBuffQuantity[idx].x) * sinf(oldBuffQuantity[idx].y) \
+                    * sqr3 * interaction.y + 2 * params.Jz * sqr3 * interaction.z) * params.dt + sqrtf(2) \
+                    * sqrtf(params.Gamma) * sqrtf(1 + 2*cotf(oldBuffQuantity[idx].x)*cotf(oldBuffQuantity[idx].x) -\
+                    2*cotf(oldBuffQuantity[idx].x)*cscf(oldBuffQuantity[idx].x)/sqr3) * sqrtf(params.dt) * curand_normal(&localState);
 
     rngStates[idx] = localState;
     newBuffQuantity[idx] = bufferQuant;
 };
 
 
-__global__ void simulate_xyz_model(float3 *newS, float3 *oldS,
-    PhysicalParams params, int numTiles, curandState *rngStates)
+__global__ void simulate_xyz_model(float3 *newS, float3 *oldS, PhysicalParams params, curandState *rngStates)
 {
     cg::thread_block cta = cg::this_thread_block();
 
     int idx = __mul24(blockIdx.x, blockDim.x) + threadIdx.x;
 
-    float3 bufferQuant = oldS[idx];
+    float sdt = sqrt(params.dt);
     float sqrtGamma = sqrtf(0.5 * params.Gamma);
 
-    curandState localState = rngStates[idx];
-    float rndA = curand_normal(&localState);
-    float rndB = curand_normal(&localState);
-
-    float3 interaction = compute4BInteraction(
+    float3 bufferQuant = oldS[idx];
+    float3 interaction = compute4BInteraction_xyz(
         oldS, idx, params.subSystemSize, params.numBodies, cta);
 
-    bufferQuant.x += ( -0.5 * params.Gamma * oldS[idx].x + 2*params.Jy * oldS[idx].z * interaction.y  - 2*params.Jz * oldS[idx].y * interaction.z) * params.dt + \
-                     sqrtGamma * (1 + oldS[idx].z - oldS[idx].x * oldS[idx].x) * rndA + sqrtGamma * oldS[idx].x * oldS[idx].y * rndB;
-
-    bufferQuant.y += ( -0.5 * params.Gamma * oldS[idx].y + 2*params.Jz * oldS[idx].x * interaction.z  - 2*params.Jx * oldS[idx].z * interaction.x) * params.dt - \
-                     sqrtGamma * (1 + oldS[idx].z - oldS[idx].y * oldS[idx].y) * rndB + sqrtGamma * oldS[idx].x * oldS[idx].y * rndA;
-
-    bufferQuant.z += ( -params.Gamma * (oldS[idx].z + 1) + 2*params.Jx * oldS[idx].y * interaction.x  - 2*params.Jy * oldS[idx].x * interaction.y) * params.dt - \
-                     -sqrtGamma * oldS[idx].x * (1 + oldS[idx].z) * rndA + sqrtGamma * oldS[idx].y * (1 + oldS[idx].z) * rndB;
+    curandState localState = rngStates[idx];
+    float2 rnd = curand_normal2(&localState);
 
 
+    bufferQuant.x += ( -0.5 * params.Gamma * oldS[idx].x + 2.0*(params.Jy * oldS[idx].z * interaction.y  - params.Jz * oldS[idx].y * interaction.z)) * params.dt+ \
+                    +sqrtGamma * (1.0 + oldS[idx].z - oldS[idx].x * oldS[idx].x) * sdt * rnd.x + sqrtGamma * oldS[idx].x * oldS[idx].y * sdt * rnd.y;
+
+    bufferQuant.y += ( -0.5 * params.Gamma * oldS[idx].y + 2.0*(params.Jz * oldS[idx].x * interaction.z  - params.Jx * oldS[idx].z * interaction.x)) * params.dt + \
+                    -sqrtGamma * (1.0 + oldS[idx].z - oldS[idx].y * oldS[idx].y) * sdt * rnd.y - sqrtGamma * oldS[idx].x * oldS[idx].y * sdt * rnd.x;
+
+    bufferQuant.z += ( -params.Gamma * (1.0 + oldS[idx].z) + 2.0*(params.Jx * oldS[idx].y * interaction.x  - params.Jy * oldS[idx].x * interaction.y)) * params.dt + \
+                    -sqrtGamma * oldS[idx].x * (1.0 + oldS[idx].z) * sdt * rnd.x + sqrtGamma * oldS[idx].y * (1.0 + oldS[idx].z) * sdt * rnd.y;
 
     rngStates[idx] = localState;
     newS[idx] = bufferQuant;
+
+    // noise variance propotional to sqrt(dt)
 };
- 
 
 
 void runDissipXY_NN(float *newBuffQuantity, float *oldBuffQuantity,
              PhysicalParams params, KernelParams kernelParams)
 {
     simulate<<<kernelParams.numBlocks, kernelParams.blockSize, kernelParams.sharedMemSize>>>(
-        (float2 *)newBuffQuantity, (float2 *)oldBuffQuantity,
-        params, kernelParams.numTiles, kernelParams.rngStates);    
+        (float2 *)newBuffQuantity, (float2 *)oldBuffQuantity, params, kernelParams.numTiles, kernelParams.rngStates); 
 };
 
 
@@ -219,8 +215,7 @@ void runDissipXY(float *newBuffQuantity, float *oldBuffQuantity,
     PhysicalParams params, KernelParams kernelParams)
 {
     simulate_xy_model<<<kernelParams.numBlocks, kernelParams.blockSize, kernelParams.sharedMemSize>>>(
-        (float2 *)newBuffQuantity, (float2 *)oldBuffQuantity,
-        params, kernelParams.numTiles, kernelParams.rngStates);    
+        (float2 *)newBuffQuantity, (float2 *)oldBuffQuantity, params, kernelParams.rngStates);    
 };
 
 
@@ -228,6 +223,5 @@ void runDissipXYZ(float *newBuffQuantity, float *oldBuffQuantity,
     PhysicalParams params, KernelParams kernelParams)
 {
     simulate_xyz_model<<<kernelParams.numBlocks, kernelParams.blockSize, kernelParams.sharedMemSize>>>(
-        (float3 *)newBuffQuantity, (float3 *)oldBuffQuantity,
-        params, kernelParams.numTiles, kernelParams.rngStates);    
+        (float3 *)newBuffQuantity, (float3 *)oldBuffQuantity, params, kernelParams.rngStates);    
 };

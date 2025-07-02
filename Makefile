@@ -1,6 +1,6 @@
 ## CUDA directory ##
 ############################################################
-CUDA_INSTALL_PATH:=/usr/local/cuda-12.9
+CUDA_INSTALL_PATH:=/usr/local/cuda-12.5
 BUILD_TYPE := release
 
 ## PYTHON DIR ##
@@ -22,8 +22,9 @@ SWIG_INCL := $(PYTHON_INSTALL_PATH)
 ## NVCC COMPILER OPTIONS ##
 ############################################################
 NVCC:= $(CUDA_INSTALL_PATH)/bin/nvcc -ccbin $(CC)
-NVCC_FLAGS:= -m64 -use_fast_math -prec-div=false -prec-sqrt=false -ftz=true
-GENCODE_FLAGS:= -gencode arch=compute_90,code=sm_90 -gencode arch=compute_90,code=compute_90
+NVCC_FLAGS:= -m64 -use_fast_math #-prec-div=false -prec-sqrt=false -ftz=true
+#89 4090, 86 3080
+GENCODE_FLAGS:=-gencode arch=compute_86,code=sm_86 -gencode arch=compute_86,code=compute_86
 
 ALL_CCFLAGS += $(NVCC_FLAGS) 
 ALL_CCFLAGS += $(addprefix -Xcompiler ,$(CCFLAGS))

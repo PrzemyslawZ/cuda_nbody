@@ -11,20 +11,15 @@
 #include <map>
 
 #include "./include/kernel_handler.h"
-#include "./include/nbodyCPU.h"
 #include "./include/device_timer.h"
 
 KernelHandler *kernel = 0;
-NbodySimulationCPU *host = 0;
 DeviceTimer *timer = 0;
 
 struct PhysicalParams PARAMS;
 struct GPUDev GPU_PARAMS;
 
 double TIME_GPU = 0;
-double TIME_CPU = 0;
-std::string PLATFORM = "CPU";
-
 
 void randomizeSystem(float *positions, int numBodies)
 {
@@ -52,16 +47,8 @@ void randomizeSystem(float *positions, int numBodies)
 
 void initializeSimulator(float *inputBuffer)
 {
-    if(PLATFORM == "GPU" || PLATFORM == "BOTH")
-    {
-        kernel = new KernelHandler(PARAMS, GPU_PARAMS);
-        kernel->writeMemory(inputBuffer);
-    }
-    if(PLATFORM == "CPU" || PLATFORM == "BOTH")
-    {
-        host = new NbodySimulationCPU(PARAMS);
-        host->writeMemory(inputBuffer);
-    }
+    kernel = new KernelHandler(PARAMS, GPU_PARAMS);
+    kernel->writeMemory(inputBuffer);
 }
 
 
@@ -97,36 +84,10 @@ void runGPUSimulation(float *resultsBuffer)
 }
 
 
-void runCPUSimulation(float *resultsBuffer)
-{
-    int ptrShift = 2 * PARAMS.numBodies;
-    int iSave = 0;
-
-    timer->resetTimer();
-    timer->startTimer();
-    for (int tStep = 0; tStep < PARAMS.steps; tStep++)
-    {
-        host->run();
-        if(tStep%PARAMS.saveStep==0 && tStep >= PARAMS.saveStartPoint)
-        {
-            memcpy(resultsBuffer + ptrShift*iSave, 
-                   host->readMemory(), 
-                   ptrShift * sizeof(float));
-            iSave++;
-        }
-    }
-    
-    timer->stopTimer();
-    TIME_CPU = timer->elapsedTime;
-}
-
-
 void closeSimulation()
 {
     if(kernel)
         delete kernel;
-    if(host)
-        delete host;
     if(timer)
         delete timer;
 }
@@ -149,8 +110,6 @@ int main()
 
 	GPU_PARAMS.blockSize = 32;
     GPU_PARAMS.useHostMem = true;
-
-	PLATFORM = "GPU";
 	
 	float *inputBuffer = new float[numBodies*2*sizeof(float)];
 	float *resultsBuffer = new float[numBodies*2*sizeof(float) * ((PARAMS.steps / PARAMS.saveStep) - PARAMS.saveStartPoint)];
@@ -159,8 +118,6 @@ int main()
     initialize(inputBuffer);
     if(kernel)
         runGPUSimulation(resultsBuffer);
-    if(host)
-        runCPUSimulation(resultsBuffer);
     closeSimulation();
 
 	if(inputBuffer)

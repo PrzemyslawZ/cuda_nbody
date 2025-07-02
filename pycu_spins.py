@@ -23,12 +23,15 @@ class Initializer:
         self.size = 3 * size if model == 2 else 2 * size
         self.initial_state = cusp.floatArray(self.size)
 
-        if file==None:
+        # print(initial_state)
+
+        if file is None:
             self._generate_initial_state(seed)
-        elif initial_state !=None:
-            self.generated_state = initial_state
         else:
             self._load_initalize_state(file)
+
+        if initial_state is not None:
+            self.generated_state = initial_state
 
         self._move(self.generated_state , self.initial_state)
 
@@ -44,10 +47,13 @@ class Initializer:
         """
 
         np.random.seed(seed=seed)
-        self.generated_state = np.concatenate([
-            np.random.uniform(size=self.size // 2, low=0.0, high=2*np.pi),
-            np.random.uniform(size=self.size // 2, low=0.0, high=np.pi)
-            ])
+        # self.generated_state = np.concatenate([
+        #     np.random.uniform(size=self.size // 2, low=0.0, high=2*np.pi),
+        #     np.random.uniform(size=self.size // 2, low=0.0, high=np.pi)
+        #     ])
+        theta = np.random.uniform(size=self.size // 2, low=0.0, high=np.pi)
+        phi = np.random.uniform(size=self.size // 2, low=0.0, high=2*np.pi)
+        self.generated_state = np.concatenate(list(zip(theta, phi)))
 
     def _move(self, source_buffer, destination_buffer:list, fact:int = 1)->None:
         """
@@ -92,7 +98,7 @@ class Initializer:
         self._load_data(file)
         self.df['theta'] = self.df['sz'].apply(lambda x: -x / np.sqrt(3))
         self.df['phi'] = (np.arctan(-self.df['sx'] / self.df['sy']) + (self.df['sy'] > 0) * np.pi) % (2 * np.pi)
-        self.generated_state = np.concatenate([self.df['theta'], self.df['phi']])
+        self.generated_state = np.concatenate(list(zip(self.df['theta'], self.df['phi']))) #np.concatenate([self.df['theta'], self.df['phi']])
 
 class CudaSpins(Initializer):
     
@@ -131,7 +137,7 @@ class CudaSpins(Initializer):
         """
         def wrapper(self, *args):
             func(self, *args)
-            shift = self.params["tsteps"] // self.params["save_step"]
+            shift = (self.params["tsteps"] - self.params["save_start"]) // self.params["save_step"]
             self._move(self._results_cuda, self.results, shift)
         return wrapper
 
@@ -188,10 +194,18 @@ class CudaSpins(Initializer):
         """
 
         buffer_size = self.size * \
-            (self.params["tsteps"] // self.params["save_step"] - self.params["save_start"])
+            ((self.params["tsteps"] - self.params["save_start"]) // self.params["save_step"])
         self.results = np.zeros(buffer_size, dtype=np.float32)
         self._results_cuda = cusp.floatArray(buffer_size)
-    
+
+    def _choose_model(self) -> None:
+        if self.params["model"] == 'xy':
+            self.params["model"] = 1
+        elif self.params["model"] == 'xyz':
+            self.params["model"] = 2
+        else:
+            self.params["model"] = 3
+
     def _load_default_params(self)->None:
         """
             Method creates default parameters dictionaies for both simulation 
@@ -218,6 +232,9 @@ class CudaSpins(Initializer):
                 'sub_system_size': 32,
                 "model": 1,
                 }
+        else:
+            self._choose_model()
+
         if self.gpu_params == {}:
            self.gpu_params = {
             "block_size": 256, 

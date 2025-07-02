@@ -27,12 +27,10 @@ KernelHandler::~KernelHandler()
 void KernelHandler::run()
 {
     assert(isInitialized);
-
     simulFucn(
         mem_deviceBuffer[memRead], 
         mem_deviceBuffer[memWrite],
         systemParams, kernelParams); 
-        
     std::swap(memRead, memWrite);    
 }
 

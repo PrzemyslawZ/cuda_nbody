@@ -44,8 +44,8 @@ class KernelHandler{
         unsigned int memRead;
         unsigned int memWrite;
 
-        unsigned int d_blockSize;
-        unsigned int d_numBlocks;
+        // unsigned int d_blockSize;
+        // unsigned int d_numBlocks;
 
         bool isInitialized=false;
         bool useHostMem;

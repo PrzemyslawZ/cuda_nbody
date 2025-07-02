@@ -1,4 +1,6 @@
 import numpy as np 
+import matplotlib.pyplot as plt
+import statistics
 
 class ResultsHandler:
 
@@ -30,11 +32,50 @@ class ResultsHandler:
                 None
         """
 
-        self.sx = np.sqrt(3)*np.sin(sim_results[::2]) * np.sin(sim_results[1::2])
-        self.sy = -np.sqrt(3)*np.sin(sim_results[::2]) * np.cos(sim_results[1::2])
-        self.sz = -np.sqrt(3)*np.cos(sim_results[::2])
+        if self.params['model'] == 2:
+            self.sx = sim_results[::3]
+            self.sy = sim_results[1::3]
+            self.sz = sim_results[2::3]
+            # print(statistics.variance(self.sx),statistics.variance(self.sy),statistics.variance(self.sz))
+        else:
+            self.sx = np.sqrt(3)*np.sin(sim_results[::2]) * np.sin(sim_results[1::2])
+            self.sy = -np.sqrt(3)*np.sin(sim_results[::2]) * np.cos(sim_results[1::2])
+            self.sz = -np.sqrt(3)*np.cos(sim_results[::2])
 
-    def prepare_tlattice(self)->None:
+    def plot(self, file_name:str)->None:
+        """
+            Plotting results (angular momentum)
+
+            Args:
+                file_name (str) - name of plot file
+
+            Return:
+                None
+        """
+
+        self._prepare_tlattice()
+        plt.figure(figsize=(6,2.5))
+        plt.subplot(121)
+        plt.title("Raw data")
+        plt.plot(self.time_body, self.sx, label="sx")
+        plt.plot(self.time_body, self.sy, label="sy")
+        plt.plot(self.time_body, self.sz, label="sz")
+        plt.xlabel("t", fontsize=14)
+        plt.ylabel("s", fontsize=14)
+        plt.subplot(122)
+        plt.title("Averaged")
+        plt.plot(self.time_line, self.sx_mean, label="<sx>")
+        plt.plot(self.time_line, self.sy_mean, label="<sy>")
+        plt.plot(self.time_line, self.sz_mean, label="<sz>")    
+        plt.xlabel("t", fontsize=14)
+        plt.ylabel("<s>", fontsize=14)
+        plt.legend(frameon=False, prop={"size": 8})
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f"./{file_name}.png", dpi=200)
+        plt.close()
+
+    def _prepare_tlattice(self)->None:
         """
             Method prepares time lattices for plots
 
@@ -49,35 +90,3 @@ class ResultsHandler:
         self.time_line = np.linspace(0, self.params['tsteps'] * self.params["dt"], tsteps)
         self.time_body = np.linspace(0, self.params['tsteps'] * self.params["dt"], 
         tsteps*self.params["num_bodies"])
-
-    def plot(self, file_name:str)->None:
-        """
-            Plotting results (angular momentum)
-
-            Args:
-                file_name (str) - name of plot file
-
-            Return:
-                None
-        """
-
-        plt.figure(figsize=(6,2.5))
-        plt.subplot(121)
-        plt.title("Intital conf")
-        plt.plot(self.time_body, self.sx, label="sx")
-        plt.plot(self.time_body, self.sy, label="sy")
-        plt.plot(self.time_body, self.sz, label="sz")
-        plt.xlabel("t x N", fontsize=14)
-        plt.ylabel("s", fontsize=14)
-        plt.subplot(122)
-        plt.title("Averaged conf")
-        plt.plot(self.time_line, self.sx_mean, label="<sx>")
-        plt.plot(self.time_line, self.sy_mean, label="<sy>")
-        plt.plot(self.time_line, self.sz_mean, label="<sz>")    
-        plt.xlabel("t", fontsize=14)
-        plt.ylabel("<s>", fontsize=14)
-        plt.legend(frameon=True, prop={"size": 12})
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig(f"./{file_name}.png", dpi=200)
-        plt.close()
